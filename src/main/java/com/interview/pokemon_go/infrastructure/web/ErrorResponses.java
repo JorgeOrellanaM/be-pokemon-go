@@ -1,5 +1,8 @@
 package com.interview.pokemon_go.infrastructure.web;
 
+import com.interview.pokemon_go.domain.exception.ErrorCategory;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -8,77 +11,75 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Builds every error response of the API and logs it. Technical details (exception messages, stack
- * traces) go only to the log; the client receives a user-friendly message and an {@code errorId}
+ * Builds every error response of the API (an {@link ApiResponseDTO} wrapping an {@link ErrorResponseDTO})
+ * and logs it. Technical details (exception messages, stack
+ * traces) go only to the log; the client receives the {@link ApiError} message and an {@code errorId}
  * that points to the matching log line.
  */
 final class ErrorResponses {
 
-    static final String UNEXPECTED_ERROR = "An unexpected error occurred. Please try again later.";
-    static final String SERVICE_UNAVAILABLE = "The service is temporarily unavailable. Please try again later.";
-
     private static final Logger log = LoggerFactory.getLogger(ErrorResponses.class);
 
-    private static final String DEFAULT_CLIENT_ERROR =
-            "The request could not be processed. Please check it and try again.";
-
-    private static final Map<HttpStatus, String> FRIENDLY_MESSAGES = Map.of(
-            HttpStatus.BAD_REQUEST, "The request is invalid. Please check it and try again.",
-            HttpStatus.UNAUTHORIZED, "Authentication is required to access this resource.",
-            HttpStatus.FORBIDDEN, "You do not have permission to access this resource.",
-            HttpStatus.NOT_FOUND, "The requested resource was not found.",
-            HttpStatus.METHOD_NOT_ALLOWED, "This operation is not supported for this resource.",
-            HttpStatus.NOT_ACCEPTABLE, "The requested response format is not supported.",
-            HttpStatus.CONFLICT, "The request conflicts with the current state of the resource.",
-            HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The request format is not supported.",
-            HttpStatus.SERVICE_UNAVAILABLE, SERVICE_UNAVAILABLE);
+    private static final Map<ErrorCategory, HttpStatus> STATUS_BY_CATEGORY = new EnumMap<>(Map.of(
+            ErrorCategory.INVALID_INPUT, HttpStatus.BAD_REQUEST,
+            ErrorCategory.UNAUTHENTICATED, HttpStatus.UNAUTHORIZED,
+            ErrorCategory.FORBIDDEN, HttpStatus.FORBIDDEN,
+            ErrorCategory.NOT_FOUND, HttpStatus.NOT_FOUND,
+            ErrorCategory.CONFLICT, HttpStatus.CONFLICT,
+            ErrorCategory.UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE));
 
     private ErrorResponses() {
     }
 
-    /**
-     * Generic message for a status, used whenever the original exception message is not meant for
-     * end users (framework and infrastructure errors).
-     */
-    static String friendlyMessage(HttpStatus status) {
-        return Optional.ofNullable(FRIENDLY_MESSAGES.get(status))
-                .orElse(status.is4xxClientError() ? DEFAULT_CLIENT_ERROR : UNEXPECTED_ERROR);
+    static HttpStatus statusOf(ErrorCategory category) {
+        return STATUS_BY_CATEGORY.get(category);
     }
 
-    static ResponseEntity<ErrorResponseDTO> build(HttpStatus status, String message, List<FieldErrorDTO> errors,
-                                                  Throwable cause, String method, String path) {
-        return build(status, message, errors, cause, method, path, HttpHeaders.EMPTY);
+    static ResponseEntity<ApiResponseDTO<Void>> build(ApiError error, Throwable cause,
+                                                      HttpServletRequest request) {
+        return build(error, cause, request, HttpHeaders.EMPTY);
     }
 
     /**
      * Client errors (4xx) are expected, so they are logged as a single WARN line without a stack trace.
      * Server errors (5xx) are logged at ERROR with the full stack trace for diagnosis.
      */
-    static ResponseEntity<ErrorResponseDTO> build(HttpStatus status, String message, List<FieldErrorDTO> errors,
-                                                  Throwable cause, String method, String path,
-                                                  HttpHeaders headers) {
+    static ResponseEntity<ApiResponseDTO<Void>> build(ApiError error, Throwable cause, HttpServletRequest request,
+                                                      HttpHeaders headers) {
+        HttpStatus status = error.status();
         String errorId = UUID.randomUUID().toString().substring(0, 8);
+        String path = originalPath(request);
         String reason = Optional.ofNullable(cause).map(Throwable::getMessage).orElse("n/a");
 
         if (status.is5xxServerError()) {
             log.error("errorId={} status={} method={} path={} reason={}",
-                    errorId, status.value(), method, path, reason, cause);
+                    errorId, status.value(), request.getMethod(), path, reason, cause);
         } else {
             log.warn("errorId={} status={} method={} path={} reason={}",
-                    errorId, status.value(), method, path, reason);
+                    errorId, status.value(), request.getMethod(), path, reason);
         }
 
-        ErrorResponseDTO body = new ErrorResponseDTO(status.value(), status.getReasonPhrase(), message, path,
-                Instant.now(), errorId, List.copyOf(errors));
+        ErrorResponseDTO body = new ErrorResponseDTO(status.value(), status.getReasonPhrase(), error.message(),
+                path, Instant.now(), errorId, error.errors());
         return ResponseEntity.status(status)
                 .headers(headers)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(body);
+                .body(ApiResponseDTO.failure(body));
+    }
+
+    /**
+     * When the container forwards an error to {@code /error}, the URI the client called is kept in a
+     * request attribute; otherwise it is the request URI itself. The query string is never included.
+     */
+    private static String originalPath(HttpServletRequest request) {
+        return Optional.ofNullable(request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI))
+                .map(Object::toString)
+                .orElse(request.getRequestURI());
     }
 }

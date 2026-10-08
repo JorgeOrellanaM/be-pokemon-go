@@ -1,23 +1,24 @@
-package com.interview.pokemon_go.infrastructure.pokeapi;
+package com.interview.pokemon_go.application.port.out;
 
-import com.interview.pokemon_go.application.port.out.PokemonCatalogPort;
 import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * Hand-written, in-memory fake of {@link PokemonCatalogPort} for use-case tests.
+ * Hand-written, in-memory fake of {@link PokemonCatalogPort} for use-case tests. Verified against the
+ * same {@link PokemonCatalogPortContractTest} as the real adapter.
  */
 public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
 
     private static final String SPRITE_URL =
             "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/%d.png";
 
-    private static final List<PokemonSummary> CATALOG = List.of(
+    private static final List<PokemonSummary> DEMO_CATALOG = List.of(
             pokemon(1, "bulbasaur", "Seed Pokémon", 69, "overgrow", "chlorophyll"),
             pokemon(2, "ivysaur", "Seed Pokémon", 130, "overgrow", "chlorophyll"),
             pokemon(3, "venusaur", "Seed Pokémon", 1000, "overgrow", "chlorophyll"),
@@ -29,11 +30,21 @@ public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
             pokemon(9, "blastoise", "Shellfish Pokémon", 855, "torrent", "rain-dish"),
             pokemon(25, "pikachu", "Mouse Pokémon", 60, "static", "lightning-rod"));
 
+    private final List<PokemonSummary> catalog;
+
+    public FakePokemonCatalogAdapter() {
+        this(DEMO_CATALOG);
+    }
+
+    public FakePokemonCatalogAdapter(List<PokemonSummary> pokemon) {
+        this.catalog = pokemon.stream().sorted(Comparator.comparingInt(PokemonSummary::id)).toList();
+    }
+
     @Override
     public PageResult<PokemonSummary> findPage(PageQuery query) {
-        int from = Math.min(query.offset(), CATALOG.size());
-        int to = Math.min(from + query.size(), CATALOG.size());
-        return new PageResult<>(CATALOG.subList(from, to), query.page(), query.size(), CATALOG.size());
+        int from = Math.min(query.offset(), catalog.size());
+        int to = Math.min(from + query.size(), catalog.size());
+        return new PageResult<>(catalog.subList(from, to), query.page(), query.size(), catalog.size());
     }
 
     private static PokemonSummary pokemon(int id, String name, String category, double hectograms,

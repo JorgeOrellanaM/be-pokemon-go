@@ -7,16 +7,21 @@ public record PageResult<T>(List<T> items, int page, int size, long totalElement
 
     public PageResult {
         items = List.copyOf(Objects.requireNonNull(items, "items must not be null"));
+        if (page < 0) {
+            throw new IllegalArgumentException("page must not be negative");
+        }
+        if (size < 1) {
+            throw new IllegalArgumentException("size must be at least 1");
+        }
         if (totalElements < 0) {
             throw new IllegalArgumentException("totalElements must not be negative");
         }
     }
 
     /**
-     * Rounds up so a partial last page still counts (11 items / size 5 = 3 pages). Returns 0 when
-     * {@code size} is 0 to avoid dividing by zero.
+     * Rounds up so a partial last page still counts (11 items / size 5 = 3 pages).
      */
     public int totalPages() {
-        return size == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
+        return (int) Math.ceil((double) totalElements / size);
     }
 }

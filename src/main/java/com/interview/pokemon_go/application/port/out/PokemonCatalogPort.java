@@ -5,8 +5,9 @@ import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 
 /**
- * External Pokemon catalog (PokeAPI). Implementations must translate transport
- * failures into {@link com.interview.pokemon_go.domain.exception.ExternalServiceUnavailableException}.
+ * Source of the Pokemon catalog. Implementations return pages ordered by Pokédex number and translate
+ * infrastructure failures into {@link com.interview.pokemon_go.domain.exception.ExternalServiceUnavailableException}.
+ * The shared contract is verified by {@code PokemonCatalogPortContractTest}.
  */
 public interface PokemonCatalogPort {
 

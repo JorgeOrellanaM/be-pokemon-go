@@ -21,9 +21,9 @@ public class PokemonController {
      * US01 - Browse Pokemon. Paging limits are enforced by {@link PageQuery}.
      */
     @GetMapping
-    public PageResponseDTO<PokemonSummaryResponseDTO> list(
+    public ApiResponseDTO<PageResponseDTO<PokemonSummaryResponseDTO>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return PokemonWebMapper.toPageResponse(listPokemon.list(new PageQuery(page, size)));
+        return ApiResponseDTO.ok(PokemonWebMapper.toPageResponse(listPokemon.list(new PageQuery(page, size))));
     }
 }

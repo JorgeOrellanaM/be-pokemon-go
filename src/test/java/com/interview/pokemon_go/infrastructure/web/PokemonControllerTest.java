@@ -58,23 +58,27 @@ class PokemonControllerTest {
         assertThat(response).hasStatusOk().hasContentType(MediaType.APPLICATION_JSON);
         assertThat(response).bodyJson().isLenientlyEqualTo("""
                 {
-                  "items": [{
-                    "id": 25,
-                    "name": "pikachu",
-                    "spriteUrl": "https://example.org/25.png",
-                    "category": "Mouse Pokémon",
-                    "weightKg": 6.0,
-                    "abilities": [
-                      {"name": "static", "hidden": false},
-                      {"name": "lightning-rod", "hidden": true}
-                    ]
-                  }],
-                  "page": 1,
-                  "size": 1,
-                  "totalElements": 10,
-                  "totalPages": 10
+                  "success": true,
+                  "data": {
+                    "items": [{
+                      "id": 25,
+                      "name": "pikachu",
+                      "spriteUrl": "https://example.org/25.png",
+                      "category": "Mouse Pokémon",
+                      "weightKg": 6.0,
+                      "abilities": [
+                        {"name": "static", "hidden": false},
+                        {"name": "lightning-rod", "hidden": true}
+                      ]
+                    }],
+                    "page": 1,
+                    "size": 1,
+                    "totalElements": 10,
+                    "totalPages": 10
+                  }
                 }
                 """);
+        assertThat(response).bodyJson().doesNotHavePath("$.error");
     }
 
     @Test
@@ -93,15 +97,19 @@ class PokemonControllerTest {
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
                 {
-                  "status": 400,
-                  "error": "Bad Request",
-                  "message": "size must be between 1 and 50",
-                  "path": "/api/v1/pokemon"
+                  "success": false,
+                  "error": {
+                    "status": 400,
+                    "error": "Bad Request",
+                    "message": "size must be between 1 and 50",
+                    "path": "/api/v1/pokemon"
+                  }
                 }
                 """);
-        assertThat(result).bodyJson().extractingPath("$.errorId").asString().isNotBlank();
-        assertThat(result).bodyJson().extractingPath("$.timestamp").asString().isNotBlank();
-        assertThat(result).bodyJson().doesNotHavePath("$.errors");
+        assertThat(result).bodyJson().doesNotHavePath("$.data");
+        assertThat(result).bodyJson().extractingPath("$.error.errorId").asString().isNotBlank();
+        assertThat(result).bodyJson().extractingPath("$.error.timestamp").asString().isNotBlank();
+        assertThat(result).bodyJson().doesNotHavePath("$.error.errors");
         verify(listPokemon, never()).list(any());
     }
 
@@ -118,9 +126,12 @@ class PokemonControllerTest {
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
                 {
-                  "status": 400,
-                  "message": "Please check the 'page' parameter.",
-                  "errors": [ { "field": "page", "message": "must be a whole number" } ]
+                  "success": false,
+                  "error": {
+                    "status": 400,
+                    "message": "Please check the 'page' parameter.",
+                    "errors": [ { "field": "page", "message": "must be a whole number" } ]
+                  }
                 }
                 """);
         assertThat(result).bodyText()
@@ -132,7 +143,7 @@ class PokemonControllerTest {
     void neverEchoesTheQueryStringInThePath() {
         MvcTestResult result = mvc.get().uri(URL + "?page=<script>").exchange();
 
-        assertThat(result).bodyJson().extractingPath("$.path").isEqualTo("/api/v1/pokemon");
+        assertThat(result).bodyJson().extractingPath("$.error.path").isEqualTo("/api/v1/pokemon");
         assertThat(result).bodyText().doesNotContain("<script>");
     }
 
@@ -144,7 +155,7 @@ class PokemonControllerTest {
         MvcTestResult result = mvc.get().uri(URL).exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(result).bodyJson().extractingPath("$.message")
+        assertThat(result).bodyJson().extractingPath("$.error.message")
                 .isEqualTo("The request contains invalid characters. Please check it and try again.");
         assertThat(result).bodyText().doesNotContain("decoding");
     }
@@ -155,8 +166,9 @@ class PokemonControllerTest {
 
         assertThat(result).hasStatus(HttpStatus.METHOD_NOT_ALLOWED).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
-                { "status": 405, "error": "Method Not Allowed",
-                  "message": "This operation is not supported for this resource." }
+                { "success": false,
+                  "error": { "status": 405, "error": "Method Not Allowed",
+                             "message": "This operation is not supported for this resource." } }
                 """);
     }
 
@@ -166,8 +178,9 @@ class PokemonControllerTest {
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
-                { "status": 404, "error": "Not Found",
-                  "message": "The requested resource was not found.", "path": "/api/v1/unknown" }
+                { "success": false,
+                  "error": { "status": 404, "error": "Not Found",
+                             "message": "The requested resource was not found.", "path": "/api/v1/unknown" } }
                 """);
         assertThat(result).bodyText().doesNotContain("static resource");
     }
@@ -180,7 +193,7 @@ class PokemonControllerTest {
         MvcTestResult result = mvc.get().uri(URL).exchange();
 
         assertThat(result).hasStatus(HttpStatus.SERVICE_UNAVAILABLE).hasContentType(MediaType.APPLICATION_JSON);
-        assertThat(result).bodyJson().extractingPath("$.message")
+        assertThat(result).bodyJson().extractingPath("$.error.message")
                 .isEqualTo("The service is temporarily unavailable. Please try again later.");
         assertThat(result).bodyText().doesNotContain("database");
     }
@@ -192,7 +205,7 @@ class PokemonControllerTest {
         MvcTestResult result = mvc.get().uri(URL).exchange();
 
         assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR).hasContentType(MediaType.APPLICATION_JSON);
-        assertThat(result).bodyJson().extractingPath("$.message")
+        assertThat(result).bodyJson().extractingPath("$.error.message")
                 .isEqualTo("An unexpected error occurred. Please try again later.");
         assertThat(result).bodyText().doesNotContain("secret").doesNotContain("IllegalState");
 
@@ -213,6 +226,6 @@ class PokemonControllerTest {
     }
 
     private static String errorId(MvcTestResult result) throws UnsupportedEncodingException {
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.errorId");
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.error.errorId");
     }
 }

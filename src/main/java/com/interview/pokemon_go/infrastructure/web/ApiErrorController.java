@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,20 +19,16 @@ import java.util.Optional;
 public class ApiErrorController implements ErrorController {
 
     @RequestMapping
-    ResponseEntity<ErrorResponseDTO> error(HttpServletRequest request) {
+    ResponseEntity<ApiResponseDTO<Void>> error(HttpServletRequest request) {
         HttpStatus status = Optional.ofNullable(request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE))
                 .filter(Integer.class::isInstance)
                 .map(code -> HttpStatus.resolve((Integer) code))
                 .orElse(HttpStatus.INTERNAL_SERVER_ERROR);
-        String path = Optional.ofNullable(request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI))
-                .map(Object::toString)
-                .orElse(request.getRequestURI());
         Throwable cause = Optional.ofNullable(request.getAttribute(RequestDispatcher.ERROR_EXCEPTION))
                 .filter(Throwable.class::isInstance)
                 .map(Throwable.class::cast)
                 .orElse(null);
 
-        return ErrorResponses.build(status, ErrorResponses.friendlyMessage(status), List.of(), cause,
-                request.getMethod(), path);
+        return ErrorResponses.build(ApiError.of(status, ErrorMessages.forStatus(status)), cause, request);
     }
 }

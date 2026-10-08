@@ -31,7 +31,11 @@ Create only the folder structure, interfaces and fake infrastructure implementat
     Never expose technical details, stack traces, or internal implementation details to the client.'
 15. add error handler rule
     prompt: 'propose a rule about the error handler correction'
-16: rules for solid principles and smell code
+16. rules for solid principles and smell code
     prompt: 'Propose coding rules based on SOLID principles and common code smells. Identify potential violations and
     recommend improvements that promote maintainability, readability, and low coupling. They should be stored in the root memory'
-'
+17. review the Claude memories myself
+18. have just one response class
+    prompt: 'Review all controller classes and standardize their API responses using a single, shared Response class.
+    This class must support both successful responses and error responses through an ErrorResponseDTO. Ensure that all
+    controllers and error handler follow this response structure consistently.'

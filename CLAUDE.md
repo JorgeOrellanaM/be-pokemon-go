@@ -2,7 +2,7 @@
 
 ## Hard constraints
 - Keep this a **single Gradle module**. Clean Architecture layers are packages, not modules.
-- Never modify `build.gradle.kts` or `settings.gradle.kts` unless the user explicitly asks.
+- Do not add, modify, upgrade, or remove any project dependencies.
 - Never add Docker or deployment files unless the user explicitly asks.
 
 ## Clean Architecture
@@ -29,7 +29,7 @@ src/main/java/com/interview/pokemon_go/
 ├── PokemonGoApplication.java
 ├── domain/
 │   ├── model/        records + value objects (PokemonSummary, Ability, Weight, PageQuery, PageResult)
-│   └── exception/    DomainException + subclasses
+│   └── exception/    DomainException + subclasses, ErrorCategory (each exception declares one)
 ├── application/
 │   ├── port/in/      input ports — *UseCase interfaces (e.g. ListPokemonUseCase)
 │   ├── port/out/     output ports — *Port interfaces (e.g. PokemonCatalogPort)
@@ -60,10 +60,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 ## Domain modeling
 - Prefer Java `record`s. Validate invariants in the compact constructor and fail fast.
 - Make defensive copies of collections with `List.copyOf(...)`.
-- Use value objects instead of raw primitives where a unit or rule applies:
-  - `Weight` is stored in hectograms (the PokeAPI unit) and exposes `kilograms()`.
-  - `PageQuery` requires `page >= 0` and `1 <= size <= PageQuery.MAX_SIZE` (50).
-- Paging uses the framework-agnostic `PageResult<T>`, never Spring's `Page`.
+- Use value objects instead of raw primitives where a unit or rule applies.
 - No Lombok in `domain` or `application`.
 
 ## Coding rules
@@ -75,20 +72,34 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 - **Constructor injection only:** Spring beans get their dependencies through a single constructor into `final` fields. No `@Autowired` on fields or setters in main code. Use-case beans receive their ports as `@Bean` method parameters in `infrastructure/config`. Test classes may use `@Autowired` fields.
 - **Comment non-obvious business logic:** add Javadoc to methods that encode a business rule, a unit conversion, a transaction/fetch constraint or an error-translation decision. Explain *why*, not *what*. Don't comment trivial getters, delegations or obvious mappings, and don't add class comments that only restate the class name.
 
+## Code smells
+**Code smells to avoid**
+
+| Smell | Rule |
+|---|---|
+| Long parameter list / data clump | More than 4 parameters, or the same values passed together repeatedly → introduce a parameter object (e.g. `ApiError`) or pass the owning object (e.g. `HttpServletRequest`) |
+| Duplicated code | Extract once a second copy appears |
+| Magic strings and numbers | User-facing messages and limits live in named constants, in one place per concern (`ErrorMessages`, `PageQuery.MAX_SIZE`) |
+| Primitive obsession | Use value objects for units and rules (`Weight`, `PageQuery`) |
+| Encapsulation leak | Getters never return mutable internal collections (`PokemonEntity.getAbilities()` is read-only); mutate through intention-revealing methods |
+| Incomplete invariants | Records validate every component in the compact constructor; no defensive branches for states that should be impossible |
+| Dead code / stale docs | Delete unused classes and endpoints; fix comments that no longer match the code |
+| Speculative generality | Don't add an abstraction before the second real use |
+| Deep nesting / long methods | Guard clauses and early returns; methods over ~20 lines are a signal to extract |
+| Boolean flag parameters | Prefer two well-named methods or an enum |
+
 ## Error handling
-- The domain and use cases throw subclasses of `DomainException` (unchecked).
-- Adapters **translate** external failures into domain exceptions. A PokeAPI 5xx or timeout becomes `ExternalServiceUnavailableException`; a PokeAPI 404 becomes `*NotFoundException`.
-- PokeAPI DTOs and HTTP client exceptions never leave the adapter.
 - **Never expose technical details to the client:** no stack traces, exception class names, Java types, SQL, framework messages or query strings. They go only to the backend log.
 - Domain exception messages for 4xx must be user-friendly, because they are returned as is (e.g. "size must be between 1 and 50").
-- Every error body is an `ErrorResponseDTO`, built only by `infrastructure/web/ErrorResponses` (`errors` is omitted when empty):
+- Every error body is an `ApiResponseDTO` with `success: false` and an `ErrorResponseDTO` under `error`. It is built only by `infrastructure/web/ErrorResponses` (`errors` is omitted when empty, and `data` is omitted on errors):
   ```json
-  { "status": 400, "error": "Bad Request", "message": "Please check the 'page' parameter.",
-    "path": "/api/v1/pokemon", "timestamp": "...", "errorId": "6f1c2a9e",
-    "errors": [ { "field": "page", "message": "must be a whole number" } ] }
+  { "success": false,
+    "error": { "status": 400, "error": "Bad Request", "message": "Please check the 'page' parameter.",
+               "path": "/api/v1/pokemon", "timestamp": "...", "errorId": "6f1c2a9e",
+               "errors": [ { "field": "page", "message": "must be a whole number" } ] } }
   ```
 - **Logging** (in `ErrorResponses`): 4xx → one WARN line without a stack trace; 5xx → ERROR with the full stack trace. Both log the same `errorId` that is returned to the client: `errorId=… status=… method=… path=… reason=…`.
-- `GlobalExceptionHandler` (extends `ResponseEntityExceptionHandler`) handles controller errors. Spring MVC errors (404, 405, 415…) get a friendly per-status message from `ErrorResponses.friendlyMessage`. `ApiErrorController` replaces Boot's `/error`, so errors outside controllers (filters, security, container) use the same shape.
+- `GlobalExceptionHandler` (extends `ResponseEntityExceptionHandler`) handles controller errors. All `DomainException`s go through one handler that maps `category()` → status. 5xx domain errors get a generic message. Spring MVC errors (404, 405, 415…) get a friendly per-status message from `ErrorMessages.forStatus`. All user-facing text lives in `ErrorMessages`. `ApiErrorController` replaces Boot's `/error`, so errors outside controllers (filters, security, container) use the same shape.
 - Status mapping:
 
 | Exception | HTTP |
@@ -109,7 +120,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
   - Add an explicit handler with the right 4xx status and a friendly message.
   - Add a `@WebMvcTest` that simulates it, by throwing the exception from the mocked use case if MockMvc can't reproduce it.
   - Add a row to the status-mapping table above. (Example: Tomcat's `InvalidParameterException` for `?page=%` → 400.)
-- **Verify new error paths end to end:** MockMvc skips the servlet container's request parsing, so also check each new error case with `curl` against `./gradlew bootRun`. Confirm the status, that the body follows `ErrorResponseDTO`, and that the log level matches (4xx WARN, 5xx ERROR).
+- **Verify new error paths end to end:** MockMvc skips the servlet container's request parsing, so also check each new error case with `curl` against `./gradlew bootRun`. Confirm the status, that the body follows `ApiResponseDTO`/`ErrorResponseDTO`, and that the log level matches (4xx WARN, 5xx ERROR).
 - No try/catch in controllers. Let exceptions reach the handler.
 
 ## API conventions
@@ -118,11 +129,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
   - `200` for reads and updates
   - `201` + `Location` for create
   - `204` for delete
-- Paging uses the query parameters `page` (0-based) and `size`.
-- Paged responses always have the same shape:
-  ```json
-  { "items": [...], "page": 0, "size": 20, "totalElements": 151, "totalPages": 8 }
-  ```
+- Every response body is the shared envelope `ApiResponseDTO<T>` (`infrastructure/web`). Successes return `ApiResponseDTO.ok(data)` → `{ "success": true, "data": … }`, and errors go through `ErrorResponses` (see Error handling). A `204` has no body.
 - Request DTOs use Jakarta Validation annotations, and controllers use `@Valid`.
 
 ## Testing / TDD
@@ -132,7 +139,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 |---|---|
 | domain | JUnit 5 + AssertJ (pure unit tests) |
 | use cases | JUnit 5 + Mockito, or hand-written fakes of the output ports |
-| web | `@WebMvcTest` (status codes, `ErrorResponseDTO` body, no leaked details; `OutputCaptureExtension` for log assertions) |
+| web | `@WebMvcTest` (status codes, `ApiResponseDTO` envelope / `ErrorResponseDTO` body, no leaked details; `OutputCaptureExtension` for log assertions) |
 | pokeapi adapter | `MockRestServiceServer` with JSON fixtures in `src/test/resources` |
 
 - **Database:** PostgreSQL at `jdbc:postgresql://localhost:5432/pokemondb` (user/password `postgres`/`postgres`, see `application.properties`). `PokemonGoApplicationTests.contextLoads` loads the full context, so it needs that DB running. `@WebMvcTest` slices do not.
@@ -143,21 +150,3 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 ./gradlew test          # run tests
 ./gradlew bootRun       # run the API (port 8080)
 ```
-
-## Current status
-- **Done:**
-  - domain models: `PokemonSummary`, `Ability`, `Weight`, `PageQuery`, `PageResult`
-  - domain exceptions
-  - `ListPokemonUseCase`
-  - `PokemonCatalogPort`
-  - `PostgresPokemonCatalogAdapter`: entities `PokemonEntity` → `pokemon`, `AbilityEntity` → `pokemon_ability` (one-to-many), Hibernate `ddl-auto=update`, seeded by idempotent `src/main/resources/data.sql`
-    - Every entity has an auto-increment (`IDENTITY`) `Long id` primary key. The Pokédex number is the unique business key `pokemon.pokedex_number`, and it is what `PokemonSummary.id` exposes, so the database id never leaves the adapter.
-  - `FakePokemonCatalogAdapter`: moved to test sources as a hand-written port fake for use-case tests (not a bean)
-  - **US01 API** `GET /api/v1/pokemon?page=0&size=20`: `ListPokemonService` (wired in `infrastructure/config/UseCaseConfig`), `PokemonController`, `PokemonWebMapper`, DTOs (`PageResponseDTO<T>`, `PokemonSummaryResponseDTO` with `weightKg`, `AbilityResponseDTO`)
-    - Paging params are validated by `PageQuery` itself (no validation starter on the classpath)
-  - `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (405, missing param…) keep their status. Type mismatches add `errors: [{field, message}]`.
-- **Next:**
-  1. Real PokeAPI adapter with caching (US01 nice-to-have)
-  2. US02 detailed view
-  3. US03 sync, US04 local update
-  4. `app_user` + auth (protected vs public routes)

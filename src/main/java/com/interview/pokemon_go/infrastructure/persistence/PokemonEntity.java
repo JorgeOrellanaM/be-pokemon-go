@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -58,6 +59,13 @@ public class PokemonEntity {
         this.spriteUrl = spriteUrl;
         this.category = category;
         this.weightHectograms = weightHectograms;
+    }
+
+    /**
+     * Read-only view: callers must go through {@link #addAbility} so the back-reference is always set.
+     */
+    public List<AbilityEntity> getAbilities() {
+        return Collections.unmodifiableList(abilities);
     }
 
     /**

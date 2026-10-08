@@ -35,9 +35,10 @@ class ApiErrorControllerTest {
 
         assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
-                { "status": 500, "error": "Internal Server Error",
-                  "message": "An unexpected error occurred. Please try again later.",
-                  "path": "/api/v1/pokemon" }
+                { "success": false,
+                  "error": { "status": 500, "error": "Internal Server Error",
+                             "message": "An unexpected error occurred. Please try again later.",
+                             "path": "/api/v1/pokemon" } }
                 """);
         assertThat(result).bodyText().doesNotContain("password").doesNotContain("IllegalState");
         assertThat(output).contains("db password leaked");
@@ -51,7 +52,7 @@ class ApiErrorControllerTest {
                 .exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(result).bodyJson().extractingPath("$.message").isEqualTo("The requested resource was not found.");
+        assertThat(result).bodyJson().extractingPath("$.error.message").isEqualTo("The requested resource was not found.");
     }
 
     @Test

@@ -9,4 +9,6 @@ public abstract class DomainException extends RuntimeException {
     protected DomainException(String message, Throwable cause) {
         super(message, cause);
     }
+
+    public abstract ErrorCategory category();
 }
