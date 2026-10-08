@@ -1,12 +1,9 @@
 # CLAUDE.md
 
-Project overview and user stories: see `.claude/CLAUDE.md`.
-
 ## Hard constraints
 - Keep this a **single Gradle module**. Clean Architecture layers are packages, not modules.
 - Never modify `build.gradle.kts` or `settings.gradle.kts` unless the user explicitly asks.
 - Never add Docker or deployment files unless the user explicitly asks.
-- Work one user story at a time. Don't scaffold future stories ahead of time.
 
 ## Clean Architecture
 
@@ -22,6 +19,8 @@ infrastructure  ──►  application  ──►  domain
 - Use-case implementations are plain classes. They are exposed as beans via `@Bean` methods in `infrastructure/config`, never annotated themselves.
 - Controllers depend on **input ports** (`*UseCase`), never on implementations.
 - Use cases depend on **output ports** (`*Port`), never on adapters.
+- **Data access layer:** JPA entities, Spring Data repositories and `DataAccessException` stay in `infrastructure/persistence`. Persistence adapters implement `*Port` and return domain models only. Spring `Page`/`Pageable` never cross the port; use `PageResult`.
+- Business rules and validation live in `domain`/`application` and stay independent of both the API and the data access layer.
 
 ## Folder structure
 
@@ -37,9 +36,10 @@ src/main/java/com/interview/pokemon_go/
 │   └── usecase/      interactors — *Service implementing input ports
 └── infrastructure/
     ├── web/          @RestControllers, *Request/*Response DTOs, *WebMapper, GlobalExceptionHandler
-    ├── pokeapi/      PokeAPI adapter (RestClient), private PokeAPI DTOs, mapper, cache
-    │                 (currently FakePokemonCatalogAdapter)
-    ├── persistence/  JPA entities, Spring Data repos, persistence adapters   (later)
+    ├── pokeapi/      PokeAPI adapter (RestClient), private PokeAPI DTOs, mapper, cache   (later)
+    ├── persistence/  JPA entities, Spring Data repos, persistence adapters
+    │                 (rules: infrastructure/persistence/CLAUDE.md)
+    │                 (PostgresPokemonCatalogAdapter is the active PokemonCatalogPort)
     ├── security/     auth / token / password adapters                       (later)
     └── config/       @Configuration: use-case bean wiring, cache, clients
 ```
@@ -48,14 +48,14 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 
 ## Naming conventions
 
-| Kind | Pattern | Location |
-|---|---|---|
-| Input port | `*UseCase` | `application/port/in` |
-| Output port | `*Port` | `application/port/out` |
-| Interactor | `*Service` | `application/usecase` |
+| Kind | Pattern                                         | Location |
+|---|-------------------------------------------------|---|
+| Input port | `*UseCase`                                      | `application/port/in` |
+| Output port | `*Port`                                         | `application/port/out` |
+| Interactor | `*Service`                                      | `application/usecase` |
 | Adapter | `*Adapter`; stand-ins are `Fake*` / `InMemory*` | `infrastructure/*` |
-| Web DTO | `*Request` / `*Response` (records) | `infrastructure/web` |
-| Mapper | `*Mapper` | in the adapter package that owns the mapping |
+| Web DTO | `*RequestDTO` / `*ResponseDTO` (records)        | `infrastructure/web` |
+| Mapper | `*Mapper`                                       | in the adapter package that owns the mapping |
 
 ## Domain modeling
 - Prefer Java `record`s. Validate invariants in the compact constructor and fail fast.
@@ -107,7 +107,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 | web | `@WebMvcTest` (status codes, `ProblemDetail` body) |
 | pokeapi adapter | `MockRestServiceServer` with JSON fixtures in `src/test/resources` |
 
-- **Known issue:** `PokemonGoApplicationTests.contextLoads` fails. The `spring-boot-starter-data-jpa-test` dependency triggers DataSource auto-config, and no datasource is configured. Leave it until persistence is added. Do not change Gradle to fix it without asking.
+- **Database:** PostgreSQL at `jdbc:postgresql://localhost:5432/pokemondb` (user/password `postgres`/`postgres`, see `application.properties`). `PokemonGoApplicationTests.contextLoads` loads the full context, so it needs that DB running. `@WebMvcTest` slices do not.
 
 ## Commands
 ```bash
@@ -122,9 +122,14 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
   - domain exceptions
   - `ListPokemonUseCase`
   - `PokemonCatalogPort`
-  - `FakePokemonCatalogAdapter`
+  - `PostgresPokemonCatalogAdapter`: entities `PokemonEntity` → `pokemon`, `AbilityEntity` → `pokemon_ability` (one-to-many), Hibernate `ddl-auto=update`, seeded by idempotent `src/main/resources/data.sql`
+    - Every entity has an auto-increment (`IDENTITY`) `Long id` primary key. The Pokédex number is the unique business key `pokemon.pokedex_number`, and it is what `PokemonSummary.id` exposes, so the database id never leaves the adapter.
+  - `FakePokemonCatalogAdapter`: moved to test sources as a hand-written port fake for use-case tests (not a bean)
+  - **US01 API** `GET /api/v1/pokemon?page=0&size=20`: `ListPokemonService` (wired in `infrastructure/config/UseCaseConfig`), `PokemonController`, `PokemonWebMapper`, DTOs (`PageResponseDTO<T>`, `PokemonSummaryResponseDTO` with `weightKg`, `AbilityResponseDTO`)
+    - Paging params are validated by `PageQuery` itself (no validation starter on the classpath)
+  - `GlobalExceptionHandler` extends `ResponseEntityExceptionHandler`, so Spring MVC errors (405, missing param…) keep their status. Type mismatches add `errors: [{field, message}]`.
 - **Next:**
-  1. `ListPokemonService` (TDD)
-  2. `PokemonController` (`GET /api/v1/pokemon?page&size`)
-  3. `GlobalExceptionHandler`
-  4. Real PokeAPI adapter with caching
+  1. Real PokeAPI adapter with caching (US01 nice-to-have)
+  2. US02 detailed view
+  3. US03 sync, US04 local update
+  4. `app_user` + auth (protected vs public routes)

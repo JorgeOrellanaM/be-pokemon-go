@@ -6,14 +6,12 @@ import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
- * In-memory stand-in for the PokeAPI client, to be replaced by a RestClient-based adapter.
+ * Hand-written, in-memory fake of {@link PokemonCatalogPort} for use-case tests.
  */
-@Component
 public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
 
     private static final String SPRITE_URL =
@@ -38,7 +36,7 @@ public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
         return new PageResult<>(CATALOG.subList(from, to), query.page(), query.size(), CATALOG.size());
     }
 
-    private static PokemonSummary pokemon(int id, String name, String category, int hectograms,
+    private static PokemonSummary pokemon(int id, String name, String category, double hectograms,
                                           String ability, String hiddenAbility) {
         return new PokemonSummary(
                 id,

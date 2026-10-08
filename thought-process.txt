@@ -10,6 +10,15 @@ Create only the folder structure, interfaces and fake infrastructure implementat
 7. Create a Claude memory to define the folder structure, clean architecture and handle errors
     prompt 'seems good. Create a file memory where is defined the folder structure, clean architecture, handle errors and other details'
 8. Corrections
-    prompt 'move the section 1 'Project' to Claude session memory where lives in project level,
-
-    and create a rule stating that user story details must not be stored in any form of project memory'
+    prompt 'move the section 1 'Project' to Claude session memory where lives in project level'
+9. DB configurations
+    prompt 'configure the application properties with the db connection to PostgreSQL url:jdbc:postgresql://localhost:5432/postgres ; host: localhost ; databasename: pokemondb'
+10. create db infrastructure
+    prompt 'create the PostgreSQL infrastructure for the user story 01 of the @Java - BLA - Technical Interview Exercise - V2.pdf'
+    prompt 'make the unique identifier auto-increment'
+11. update memory with db rules
+    prompt 'review the @Java - BLA - Technical Interview Exercise - V2.pdf and determine which database rules should be included in the project memory'
+    prompt 'apply and save the rule 2,5, and 6 into the path infrastructure/persistence memory. Then the rule 4 into root project memory'
+12. create the class controller
+    prompt 'create the api rest of the user story 01'
+13. use optional class and define SOLID, comments, and generic path

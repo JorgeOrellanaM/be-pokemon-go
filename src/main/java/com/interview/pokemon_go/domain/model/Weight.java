@@ -3,7 +3,7 @@ package com.interview.pokemon_go.domain.model;
 /**
  * Pokemon weight expressed in hectograms, the unit used by PokeAPI.
  */
-public record Weight(int hectograms) {
+public record Weight(double hectograms) {
 
     public Weight {
         if (hectograms < 0) {
