@@ -1,0 +1,15 @@
+1. Use spring init to generate a base project
+2. Create another folder for frontend, then run Claude Code in the same path
+3. Runs Claude instances for fe and be
+4. Select plan mode to analyze and create the clean architecture
+    prompt 'review the document @Java - BLA - Technical Interview Exercise - V2.pdf and propose a clean architecture for the project'
+5. I started the structure folder and a basic example to implement the architecture
+    prompt 'the backend project must be contained within a single module. Do not create deployment process such as Docker or modify/create Gradle configurations.
+Create only the folder structure, interfaces and fake infrastructure implementations. Show me the results, just focus on the US01'
+6. Review the code myself
+7. Create a Claude memory to define the folder structure, clean architecture and handle errors
+    prompt 'seems good. Create a file memory where is defined the folder structure, clean architecture, handle errors and other details'
+8. Corrections
+    prompt 'move the section 1 'Project' to Claude session memory where lives in project level,
+
+    and create a rule stating that user story details must not be stored in any form of project memory'
