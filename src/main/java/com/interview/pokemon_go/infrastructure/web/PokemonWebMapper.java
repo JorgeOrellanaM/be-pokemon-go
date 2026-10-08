@@ -8,6 +8,9 @@ final class PokemonWebMapper {
     private PokemonWebMapper() {
     }
 
+    /**
+     * Weight is exposed in kilograms for API clients; the domain keeps hectograms, the PokeAPI unit.
+     */
     static PokemonSummaryResponseDTO toResponse(PokemonSummary summary) {
         return new PokemonSummaryResponseDTO(
                 summary.id(),

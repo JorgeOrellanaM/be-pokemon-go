@@ -3,9 +3,6 @@ package com.interview.pokemon_go.domain.model;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Entry shown when browsing Pokemon (US01): sprite, category, weight and abilities.
- */
 public record PokemonSummary(
         int id,
         String name,

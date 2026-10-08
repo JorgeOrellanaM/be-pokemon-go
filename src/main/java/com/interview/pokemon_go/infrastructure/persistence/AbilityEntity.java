@@ -14,9 +14,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * An ability of a Pokemon. The primary key is auto-incremented; (pokemon_id, name) stays unique.
- */
 @Entity
 @Table(name = "pokemon_ability",
         uniqueConstraints = @UniqueConstraint(columnNames = {"pokemon_id", "name"}))

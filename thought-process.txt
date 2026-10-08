@@ -21,4 +21,17 @@ Create only the folder structure, interfaces and fake infrastructure implementat
     prompt 'apply and save the rule 2,5, and 6 into the path infrastructure/persistence memory. Then the rule 4 into root project memory'
 12. create the class controller
     prompt 'create the api rest of the user story 01'
-13. use optional class and define SOLID, comments, and generic path
+13. user story is almost completed. I have to implement some rules about solid, clean code, and code standars. use optional class and define SOLID, comments, and generic path
+    prompt 'add these rules into project root memory and apply them in the code: \n
+    1. Use Optional to safely handle nullable and avoid unnecessary NullPointerException. \n
+    2. Use constructor injection for dependency injection \n
+    3. Add comments to methods that contain important or non-obvious business logic'
+14. improve error handler
+    prompt: 'Improve error handling by logging errors in the backend console and returning a custom error response containing the HTTP status code and a user-friendly message.
+    Never expose technical details, stack traces, or internal implementation details to the client.'
+15. add error handler rule
+    prompt: 'propose a rule about the error handler correction'
+16: rules for solid principles and smell code
+    prompt: 'Propose coding rules based on SOLID principles and common code smells. Identify potential violations and
+    recommend improvements that promote maintainability, readability, and low coupling. They should be stored in the root memory'
+'

@@ -15,6 +15,9 @@ public record PageQuery(int page, int size) {
         }
     }
 
+    /**
+     * Number of rows to skip: pages are zero-based, so page 0 starts at row 0.
+     */
     public int offset() {
         return page * size;
     }

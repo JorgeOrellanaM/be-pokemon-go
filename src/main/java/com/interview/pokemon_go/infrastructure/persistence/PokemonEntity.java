@@ -60,6 +60,10 @@ public class PokemonEntity {
         this.weightHectograms = weightHectograms;
     }
 
+    /**
+     * Abilities must be added through this method: it sets the back-reference to this Pokemon, which
+     * is the owning side ({@code mappedBy}) of the relationship and fills {@code pokemon_id}.
+     */
     public void addAbility(String name, boolean hidden) {
         abilities.add(new AbilityEntity(this, name, hidden));
     }

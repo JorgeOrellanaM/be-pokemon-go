@@ -12,6 +12,10 @@ public record PageResult<T>(List<T> items, int page, int size, long totalElement
         }
     }
 
+    /**
+     * Rounds up so a partial last page still counts (11 items / size 5 = 3 pages). Returns 0 when
+     * {@code size} is 0 to avoid dividing by zero.
+     */
     public int totalPages() {
         return size == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
     }

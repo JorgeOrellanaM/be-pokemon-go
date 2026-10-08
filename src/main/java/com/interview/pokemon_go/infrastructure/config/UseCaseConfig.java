@@ -6,9 +6,6 @@ import com.interview.pokemon_go.application.usecase.ListPokemonService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Exposes the framework-free use cases as Spring beans.
- */
 @Configuration
 public class UseCaseConfig {
 

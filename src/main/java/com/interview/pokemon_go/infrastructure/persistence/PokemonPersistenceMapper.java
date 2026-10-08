@@ -9,6 +9,10 @@ final class PokemonPersistenceMapper {
     private PokemonPersistenceMapper() {
     }
 
+    /**
+     * The Pokédex number becomes the domain id. The generated database id is deliberately dropped so
+     * it never leaves the persistence adapter.
+     */
     static PokemonSummary toDomain(PokemonEntity entity) {
         return new PokemonSummary(
                 entity.getPokedexNumber(),
@@ -21,6 +25,10 @@ final class PokemonPersistenceMapper {
                         .toList());
     }
 
+    /**
+     * Builds a new, unsaved entity: the domain id is stored as the Pokédex number and the database id
+     * is left for PostgreSQL to generate.
+     */
     static PokemonEntity toEntity(PokemonSummary summary) {
         PokemonEntity entity = new PokemonEntity(
                 summary.id(),
