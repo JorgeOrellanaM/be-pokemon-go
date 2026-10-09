@@ -46,3 +46,7 @@ Create only the folder structure, interfaces and fake infrastructure implementat
     prompt: 'review the user story 1 of @pdf and fix the implementation, do not use cache for now'
 22. implement user story 3
 22. implement user story 4
+23. environment properties and dockerfile
+    prompt: 'create environments properties for qa and dev'
+    prompt: 'build the dockerfile for this project'
+   

@@ -1,0 +1,66 @@
+Pokemon Go API - Docker commands
+================================
+Run every command from the project root (be-pokemon-go/), not from this folder.
+Requires Docker Desktop to be running.
+The API listens on http://localhost:8080 and uses the "qa" Spring profile.
+
+
+1. Run everything with Docker Compose (API + PostgreSQL) - recommended
+----------------------------------------------------------------------
+
+# Build the image and start both containers (logs in the foreground, Ctrl+C to stop)
+docker compose -f docker/docker-compose.yml up --build
+
+# Same, but in the background
+docker compose -f docker/docker-compose.yml up --build -d
+
+# Follow the API logs
+docker compose -f docker/docker-compose.yml logs -f api
+
+# Show container status
+docker compose -f docker/docker-compose.yml ps
+
+# Stop and remove the containers (database data is kept in the "pgdata" volume)
+docker compose -f docker/docker-compose.yml down
+
+# Stop and also delete the database volume (next start re-seeds from data.sql)
+docker compose -f docker/docker-compose.yml down -v
+
+Note: Postgres is published on port 5432. Stop any local PostgreSQL first, or the db container will not start.
+
+
+2. Run with plain Docker commands (no Compose)
+----------------------------------------------
+
+# Build the API image
+docker build -f docker/Dockerfile -t pokemon-go-api .
+
+# Create a network so the API can reach the database by name
+docker network create pokemon-net
+
+# Start PostgreSQL
+docker run -d --name pokemon-db --network pokemon-net -p 5432:5432 -e POSTGRES_DB=pokemondb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -v pokemon-pgdata:/var/lib/postgresql/data postgres:17
+
+# Start the API (wait a few seconds for the database to be ready first)
+docker run -d --name pokemon-api --network pokemon-net -p 8080:8080 -e SPRING_PROFILES_ACTIVE=qa -e DB_URL=jdbc:postgresql://pokemon-db:5432/pokemondb -e DB_USERNAME=postgres -e DB_PASSWORD=postgres pokemon-go-api
+
+# Alternative: use the PostgreSQL installed on your machine instead of the pokemon-db container.
+# Inside a container "localhost" is the container itself; host.docker.internal is your machine.
+docker run -d --name pokemon-api -p 8080:8080 -e SPRING_PROFILES_ACTIVE=qa -e DB_URL=jdbc:postgresql://host.docker.internal:5432/pokemondb -e DB_USERNAME=postgres -e DB_PASSWORD=postgres pokemon-go-api
+
+# Follow the API logs
+docker logs -f pokemon-api
+
+# Stop and remove everything
+docker rm -f pokemon-api pokemon-db
+docker network rm pokemon-net
+docker volume rm pokemon-pgdata
+
+
+3. Check that it works
+----------------------
+
+curl http://localhost:8080/actuator/health
+curl "http://localhost:8080/api/v1/pokemon?page=0&size=5"
+curl http://localhost:8080/api/v1/local-pokemon
+curl -X POST http://localhost:8080/api/v1/local-pokemon/25/sync
