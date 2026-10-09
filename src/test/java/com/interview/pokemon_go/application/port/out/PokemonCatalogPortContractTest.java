@@ -90,6 +90,16 @@ public abstract class PokemonCatalogPortContractTest {
         assertThat(first).isEqualTo(pokemon(1, "bulbasaur"));
     }
 
+    @Test
+    void findsOnePokemonByPokedexNumber() {
+        assertThat(catalog.findById(7)).contains(pokemon(7, "squirtle"));
+    }
+
+    @Test
+    void findsNothingForAnUnknownPokedexNumber() {
+        assertThat(catalog.findById(4242)).isEmpty();
+    }
+
     private static PokemonSummary pokemon(int id, String name) {
         return new PokemonSummary(id, name, "https://example.org/%d.png".formatted(id), "Test Pokémon",
                 new Weight(id * 10), List.of(new Ability("main-" + name, false), new Ability("hidden-" + name, true)));

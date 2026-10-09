@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -44,9 +45,28 @@ public class PokeApiPokemonCatalogAdapter implements PokemonCatalogPort {
         return new PageResult<>(joinAll(summaries), query.page(), query.size(), page.count());
     }
 
+    /**
+     * An unknown id is an empty result; the species is only asked for once the Pokemon exists.
+     */
+    @Override
+    public Optional<PokemonSummary> findById(int id) {
+        return pokeApi.findPokemon(id).map(this::withSpecies);
+    }
+
+    /**
+     * A Pokemon that PokeAPI itself listed must exist, so a missing one is an inconsistency (503),
+     * not a "not found".
+     */
     private PokemonSummary summaryOf(NamedResource entry) {
-        PokeApiPokemonDTO pokemon = pokeApi.findPokemon(PokeApiMapper.idFromUrl(entry.url()))
+        return findById(PokeApiMapper.idFromUrl(entry.url()))
                 .orElseThrow(() -> new ExternalServiceUnavailableException(LISTED_BUT_MISSING));
+    }
+
+    /**
+     * The species is taken from the Pokemon's link, not its id, because alternate forms belong to the
+     * species of their base form.
+     */
+    private PokemonSummary withSpecies(PokeApiPokemonDTO pokemon) {
         PokeApiSpeciesDTO species = pokeApi.getSpecies(PokeApiMapper.idFromUrl(pokemon.species().url()));
         return PokeApiMapper.toSummary(pokemon, species);
     }

@@ -1,4 +1,4 @@
--- Demo seed for the local Pokemon catalog (US01). Idempotent: safe to run on every startup.
+-- Demo seed for the local Pokemon store (US03). Idempotent: safe to run on every startup.
 -- Primary keys are auto-incremented; rows are matched by their business keys instead.
 
 INSERT INTO pokemon (pokedex_number, name, sprite_url, category, weight_hectograms) VALUES
@@ -29,4 +29,26 @@ FROM (VALUES
     (25, 'static',   false), (25, 'lightning-rod', true)
 ) AS a (pokedex_number, name, hidden)
 JOIN pokemon p ON p.pokedex_number = a.pokedex_number
+ON CONFLICT (pokemon_id, name) DO NOTHING;
+
+-- Demo values for the fields this service owns (US03): French localized names, region and tags.
+-- Only filled while both custom texts are still empty, so values edited through the API are kept.
+UPDATE pokemon p
+SET localized_name = v.localized_name, region = v.region
+FROM (VALUES
+    (1,  'Bulbizarre', 'Kanto'),
+    (4,  'Salamèche',  'Kanto'),
+    (7,  'Carapuce',   'Kanto'),
+    (25, 'Pikachu',    'Kanto')
+) AS v (pokedex_number, localized_name, region)
+WHERE p.pokedex_number = v.pokedex_number
+  AND p.localized_name IS NULL
+  AND p.region IS NULL;
+
+INSERT INTO pokemon_tag (pokemon_id, name)
+SELECT p.id, t.name
+FROM (VALUES
+    (1, 'starter'), (4, 'starter'), (7, 'starter'), (25, 'mascot')
+) AS t (pokedex_number, name)
+JOIN pokemon p ON p.pokedex_number = t.pokedex_number
 ON CONFLICT (pokemon_id, name) DO NOTHING;

@@ -8,10 +8,12 @@ import com.interview.pokemon_go.domain.model.Weight;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Hand-written, in-memory fake of {@link PokemonCatalogPort} for use-case tests. Verified against the
- * same {@link PokemonCatalogPortContractTest} as the real adapter.
+ * same {@link PokemonCatalogPortContractTest} as the real adapter. Counts single-Pokemon lookups so
+ * tests can prove the catalog was not called.
  */
 public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
 
@@ -31,6 +33,7 @@ public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
             pokemon(25, "pikachu", "Mouse Pokémon", 60, "static", "lightning-rod"));
 
     private final List<PokemonSummary> catalog;
+    private int lookups;
 
     public FakePokemonCatalogAdapter() {
         this(DEMO_CATALOG);
@@ -45,6 +48,16 @@ public class FakePokemonCatalogAdapter implements PokemonCatalogPort {
         int from = Math.min(query.offset(), catalog.size());
         int to = Math.min(from + query.size(), catalog.size());
         return new PageResult<>(catalog.subList(from, to), query.page(), query.size(), catalog.size());
+    }
+
+    @Override
+    public Optional<PokemonSummary> findById(int id) {
+        lookups++;
+        return catalog.stream().filter(summary -> summary.id() == id).findFirst();
+    }
+
+    public int lookups() {
+        return lookups;
     }
 
     private static PokemonSummary pokemon(int id, String name, String category, double hectograms,

@@ -103,6 +103,31 @@ class PokeApiPokemonCatalogAdapterTest {
     }
 
     @Test
+    void findsOnePokemonWithTheCategoryOfItsSpecies() {
+        pokeApi.withPokemon(10034, pokemon(10034, "charizard-mega-x", 6))
+                .withSpecies(6, species("Flame Pokémon", "", 2));
+
+        PokemonSummary summary = adapter.findById(10034).orElseThrow();
+
+        assertThat(summary.name()).isEqualTo("charizard-mega-x");
+        assertThat(summary.category()).isEqualTo("Flame Pokémon");
+        assertThat(pokeApi.requests()).containsExactly("pokemon/10034", "pokemon-species/6");
+    }
+
+    @Test
+    void findsNothingForAnUnknownPokemonWithoutAskingForItsSpecies() {
+        assertThat(adapter.findById(99999)).isEmpty();
+        assertThat(pokeApi.requests()).containsExactly("pokemon/99999");
+    }
+
+    @Test
+    void reportsAMissingSpeciesOfOnePokemonAsUnavailable() {
+        pokeApi.withPokemon(25, pokemon(25, "pikachu", 25));
+
+        assertThatThrownBy(() -> adapter.findById(25)).isExactlyInstanceOf(ExternalServiceUnavailableException.class);
+    }
+
+    @Test
     void requiresAClientAndAnExecutor() {
         assertThatNullPointerException().isThrownBy(() -> new PokeApiPokemonCatalogAdapter(null, Runnable::run));
         assertThatNullPointerException().isThrownBy(() -> new PokeApiPokemonCatalogAdapter(pokeApi, null));

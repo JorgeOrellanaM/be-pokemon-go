@@ -25,6 +25,14 @@ class DomainExceptionTest {
     }
 
     @Test
+    void pokemonAlreadySyncedIsConflictWithFriendlyMessage() {
+        PokemonAlreadySyncedException ex = new PokemonAlreadySyncedException(25);
+
+        assertThat(ex.category()).isEqualTo(ErrorCategory.CONFLICT);
+        assertThat(ex.getMessage()).isEqualTo("Pokemon with id 25 is already synced");
+    }
+
+    @Test
     void externalServiceUnavailableIsUnavailable() {
         assertThat(new ExternalServiceUnavailableException("down", new RuntimeException()).category())
                 .isEqualTo(ErrorCategory.UNAVAILABLE);

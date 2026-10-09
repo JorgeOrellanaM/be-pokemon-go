@@ -52,6 +52,19 @@ public class PokemonEntity {
     @BatchSize(size = 50)
     private List<AbilityEntity> abilities = new ArrayList<>();
 
+    // Fields below are owned by this service (US03), not copied from PokeAPI; nullable until set.
+
+    @Column(name = "localized_name", length = 100)
+    private String localizedName;
+
+    @Column(length = 100)
+    private String region;
+
+    @OneToMany(mappedBy = "pokemon", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    @BatchSize(size = 50)
+    private List<PokemonTagEntity> tags = new ArrayList<>();
+
     public PokemonEntity(Integer pokedexNumber, String name, String spriteUrl, String category,
                          double weightHectograms) {
         this.pokedexNumber = pokedexNumber;
@@ -74,5 +87,24 @@ public class PokemonEntity {
      */
     public void addAbility(String name, boolean hidden) {
         abilities.add(new AbilityEntity(this, name, hidden));
+    }
+
+    /**
+     * Read-only view in insertion order: callers must go through {@link #addTag}.
+     */
+    public List<PokemonTagEntity> getTags() {
+        return Collections.unmodifiableList(tags);
+    }
+
+    /**
+     * Same back-reference rule as {@link #addAbility}.
+     */
+    public void addTag(String name) {
+        tags.add(new PokemonTagEntity(this, name));
+    }
+
+    public void customize(String localizedName, String region) {
+        this.localizedName = localizedName;
+        this.region = region;
     }
 }

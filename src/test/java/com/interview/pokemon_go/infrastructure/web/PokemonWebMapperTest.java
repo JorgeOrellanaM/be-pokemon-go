@@ -3,6 +3,7 @@ package com.interview.pokemon_go.infrastructure.web;
 import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.BaseStat;
 import com.interview.pokemon_go.domain.model.EvolutionStage;
+import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonDetails;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
@@ -62,6 +63,35 @@ class PokemonWebMapperTest {
         assertThat(dto.items()).extracting(PokemonSummaryResponseDTO::name).containsExactly("pikachu");
         assertThat(dto.page()).isEqualTo(2);
         assertThat(dto.size()).isEqualTo(5);
+        assertThat(dto.totalElements()).isEqualTo(11);
+        assertThat(dto.totalPages()).isEqualTo(3);
+    }
+
+    @Test
+    void mapsLocalPokemonWithItsCustomFields() {
+        LocalPokemon local = new LocalPokemon(PIKACHU, "Pikachu (ES)", "Kanto", List.of("starter"));
+
+        LocalPokemonResponseDTO dto = PokemonWebMapper.toLocalResponse(local);
+
+        assertThat(dto.id()).isEqualTo(25);
+        assertThat(dto.name()).isEqualTo("pikachu");
+        assertThat(dto.spriteUrl()).isEqualTo("https://example.org/25.png");
+        assertThat(dto.category()).isEqualTo("Mouse Pokémon");
+        assertThat(dto.weightKg()).isEqualTo(6.0);
+        assertThat(dto.abilities()).containsExactly(
+                new AbilityResponseDTO("static", false), new AbilityResponseDTO("lightning-rod", true));
+        assertThat(dto.localizedName()).isEqualTo("Pikachu (ES)");
+        assertThat(dto.region()).isEqualTo("Kanto");
+        assertThat(dto.tags()).containsExactly("starter");
+    }
+
+    @Test
+    void mapsPageOfLocalPokemon() {
+        PageResult<LocalPokemon> page = new PageResult<>(List.of(LocalPokemon.replicaOf(PIKACHU)), 0, 5, 11);
+
+        PageResponseDTO<LocalPokemonResponseDTO> dto = PokemonWebMapper.toLocalPageResponse(page);
+
+        assertThat(dto.items()).extracting(LocalPokemonResponseDTO::id).containsExactly(25);
         assertThat(dto.totalElements()).isEqualTo(11);
         assertThat(dto.totalPages()).isEqualTo(3);
     }

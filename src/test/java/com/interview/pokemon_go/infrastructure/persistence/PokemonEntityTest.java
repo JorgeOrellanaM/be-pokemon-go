@@ -25,4 +25,33 @@ class PokemonEntityTest {
 
         assertThat(entity.getAbilities().getFirst().getPokemon()).isSameAs(entity);
     }
+
+    @Test
+    void tagsCannotBeModifiedFromOutside() {
+        PokemonEntity entity = new PokemonEntity(25, "pikachu", null, null, 60);
+        entity.addTag("starter");
+
+        assertThatExceptionOfType(UnsupportedOperationException.class)
+                .isThrownBy(() -> entity.getTags().clear());
+        assertThat(entity.getTags()).hasSize(1);
+    }
+
+    @Test
+    void addTagLinksTheTagToItsPokemon() {
+        PokemonEntity entity = new PokemonEntity(25, "pikachu", null, null, 60);
+
+        entity.addTag("starter");
+
+        assertThat(entity.getTags().getFirst().getPokemon()).isSameAs(entity);
+    }
+
+    @Test
+    void customizeSetsTheLocalFields() {
+        PokemonEntity entity = new PokemonEntity(25, "pikachu", null, null, 60);
+
+        entity.customize("Pikachu (ES)", "Kanto");
+
+        assertThat(entity.getLocalizedName()).isEqualTo("Pikachu (ES)");
+        assertThat(entity.getRegion()).isEqualTo("Kanto");
+    }
 }

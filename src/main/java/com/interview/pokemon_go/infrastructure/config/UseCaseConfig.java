@@ -1,11 +1,18 @@
 package com.interview.pokemon_go.infrastructure.config;
 
+import com.interview.pokemon_go.application.port.in.GetLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.GetPokemonDetailsUseCase;
+import com.interview.pokemon_go.application.port.in.ListLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.ListPokemonUseCase;
+import com.interview.pokemon_go.application.port.in.SyncPokemonUseCase;
+import com.interview.pokemon_go.application.port.out.LocalPokemonPort;
 import com.interview.pokemon_go.application.port.out.PokemonCatalogPort;
 import com.interview.pokemon_go.application.port.out.PokemonDetailsPort;
+import com.interview.pokemon_go.application.usecase.GetLocalPokemonService;
 import com.interview.pokemon_go.application.usecase.GetPokemonDetailsService;
+import com.interview.pokemon_go.application.usecase.ListLocalPokemonService;
 import com.interview.pokemon_go.application.usecase.ListPokemonService;
+import com.interview.pokemon_go.application.usecase.SyncPokemonService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,5 +27,20 @@ public class UseCaseConfig {
     @Bean
     public GetPokemonDetailsUseCase getPokemonDetailsUseCase(PokemonDetailsPort details) {
         return new GetPokemonDetailsService(details);
+    }
+
+    @Bean
+    public SyncPokemonUseCase syncPokemonUseCase(PokemonCatalogPort catalog, LocalPokemonPort local) {
+        return new SyncPokemonService(catalog, local);
+    }
+
+    @Bean
+    public GetLocalPokemonUseCase getLocalPokemonUseCase(LocalPokemonPort local) {
+        return new GetLocalPokemonService(local);
+    }
+
+    @Bean
+    public ListLocalPokemonUseCase listLocalPokemonUseCase(LocalPokemonPort local) {
+        return new ListLocalPokemonService(local);
     }
 }
