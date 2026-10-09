@@ -23,13 +23,21 @@ class PokeApiHttpClient implements PokeApiClient {
     }
 
     /**
+     * The list is the entry point of the catalog and must always answer, so every failure is a 503.
+     */
+    @Override
+    public PokeApiPokemonPageDTO listPokemon(int offset, int limit) {
+        return getRequired(PokeApiPokemonPageDTO.class, "/pokemon?offset={offset}&limit={limit}", offset, limit);
+    }
+
+    /**
      * A 404 here is the only "not found" PokeAPI can answer for a client's request: the id the
      * client asked for does not exist.
      */
     @Override
     public Optional<PokeApiPokemonDTO> findPokemon(int id) {
         try {
-            return Optional.of(get("/pokemon/{id}", id, PokeApiPokemonDTO.class));
+            return Optional.of(get(PokeApiPokemonDTO.class, "/pokemon/{id}", id));
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
         } catch (RestClientException e) {
@@ -39,28 +47,29 @@ class PokeApiHttpClient implements PokeApiClient {
 
     @Override
     public PokeApiSpeciesDTO getSpecies(int id) {
-        return getRequired("/pokemon-species/{id}", id, PokeApiSpeciesDTO.class);
+        return getRequired(PokeApiSpeciesDTO.class, "/pokemon-species/{id}", id);
     }
 
     @Override
     public PokeApiEvolutionChainDTO getEvolutionChain(int id) {
-        return getRequired("/evolution-chain/{id}", id, PokeApiEvolutionChainDTO.class);
+        return getRequired(PokeApiEvolutionChainDTO.class, "/evolution-chain/{id}", id);
     }
 
     /**
-     * Species and chains are reached through PokeAPI's own links, so they must exist: any failure,
-     * a 404 included, is PokeAPI's fault and becomes a 503 rather than a "not found" for the client.
+     * Resources other than the requested Pokemon are reached through PokeAPI's own list or links, so
+     * they must exist: any failure, a 404 included, is PokeAPI's fault and becomes a 503 rather than a
+     * "not found" for the client.
      */
-    private <T> T getRequired(String path, int id, Class<T> type) {
+    private <T> T getRequired(Class<T> type, String path, Object... uriVariables) {
         try {
-            return get(path, id, type);
+            return get(type, path, uriVariables);
         } catch (RestClientException e) {
             throw unavailable(e);
         }
     }
 
-    private <T> T get(String path, int id, Class<T> type) {
-        return Optional.ofNullable(restClient.get().uri(path, id).retrieve().body(type))
+    private <T> T get(Class<T> type, String path, Object... uriVariables) {
+        return Optional.ofNullable(restClient.get().uri(path, uriVariables).retrieve().body(type))
                 .orElseThrow(() -> new RestClientException("PokeAPI returned an empty body for " + path));
     }
 

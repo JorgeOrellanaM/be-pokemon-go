@@ -3,8 +3,8 @@ package com.interview.pokemon_go.infrastructure.pokeapi;
 import java.util.Optional;
 
 /**
- * The PokeAPI resources this service reads, independent of how they are fetched. The adapter depends
- * on this abstraction, so it knows nothing about HTTP; {@link PokeApiHttpClient} is the only class
+ * The PokeAPI resources this service reads, independent of how they are fetched. The adapters depend
+ * on this abstraction, so they know nothing about HTTP; {@link PokeApiHttpClient} is the only class
  * that does.
  * <p>
  * Contract: an unknown Pokemon is an empty result. Every other failure, including a missing species
@@ -12,6 +12,8 @@ import java.util.Optional;
  * {@link com.interview.pokemon_go.domain.exception.ExternalServiceUnavailableException}.
  */
 interface PokeApiClient {
+
+    PokeApiPokemonPageDTO listPokemon(int offset, int limit);
 
     Optional<PokeApiPokemonDTO> findPokemon(int id);
 

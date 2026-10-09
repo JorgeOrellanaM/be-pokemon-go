@@ -6,13 +6,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /**
- * Subset of PokeAPI's {@code /pokemon/{id}} response used by this service.
+ * Subset of PokeAPI's {@code /pokemon/{id}} response used by this service. {@code weight} is in
+ * hectograms.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record PokeApiPokemonDTO(
         int id,
         String name,
+        int weight,
         Sprites sprites,
+        List<AbilitySlot> abilities,
         List<Stat> stats,
         List<Type> types,
         NamedResource species) {
@@ -27,6 +30,10 @@ record PokeApiPokemonDTO(
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Artwork(@JsonProperty("front_default") String frontDefault) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record AbilitySlot(NamedResource ability, @JsonProperty("is_hidden") boolean hidden, int slot) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

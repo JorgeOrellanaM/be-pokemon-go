@@ -31,6 +31,6 @@ public class PokeApiPokemonDetailsAdapter implements PokemonDetailsPort {
         PokeApiSpeciesDTO species = pokeApi.getSpecies(PokeApiMapper.idFromUrl(pokemon.species().url()));
         PokeApiEvolutionChainDTO evolutionChain =
                 pokeApi.getEvolutionChain(PokeApiMapper.idFromUrl(species.evolutionChain().url()));
-        return PokeApiMapper.toDomain(pokemon, species, evolutionChain);
+        return PokeApiMapper.toDetails(pokemon, species, evolutionChain);
     }
 }

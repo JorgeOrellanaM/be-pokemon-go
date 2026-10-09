@@ -1,8 +1,11 @@
 package com.interview.pokemon_go.infrastructure.pokeapi;
 
+import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.BaseStat;
 import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.PokemonDetails;
+import com.interview.pokemon_go.domain.model.PokemonSummary;
+import com.interview.pokemon_go.domain.model.Weight;
 import com.interview.pokemon_go.infrastructure.pokeapi.PokeApiSpeciesDTO.FlavorText;
 
 import java.util.Comparator;
@@ -13,15 +16,29 @@ import java.util.regex.Pattern;
 final class PokeApiMapper {
 
     private static final String LANGUAGE = "en";
-    private static final Pattern SOFT_HYPHEN_LINE_BREAK = Pattern.compile("­\\s+");
+    private static final Pattern SOFT_HYPHEN_LINE_BREAK = Pattern.compile("\\u00AD\\s+");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern TRAILING_ID = Pattern.compile(".*/(\\d+)/?$");
 
     private PokeApiMapper() {
     }
 
-    static PokemonDetails toDomain(PokeApiPokemonDTO pokemon, PokeApiSpeciesDTO species,
-                                   PokeApiEvolutionChainDTO evolutionChain) {
+    /**
+     * Catalog entry (US01). The list shows the small default sprite; the detail view uses the
+     * artwork. PokeAPI already reports weight in hectograms, the unit {@link Weight} keeps.
+     */
+    static PokemonSummary toSummary(PokeApiPokemonDTO pokemon, PokeApiSpeciesDTO species) {
+        return new PokemonSummary(
+                pokemon.id(),
+                pokemon.name(),
+                pokemon.sprites().frontDefault(),
+                category(species),
+                new Weight(pokemon.weight()),
+                abilities(pokemon));
+    }
+
+    static PokemonDetails toDetails(PokeApiPokemonDTO pokemon, PokeApiSpeciesDTO species,
+                                    PokeApiEvolutionChainDTO evolutionChain) {
         return new PokemonDetails(
                 pokemon.id(),
                 pokemon.name(),
@@ -52,6 +69,16 @@ final class PokeApiMapper {
                 .map(PokeApiSpeciesDTO.Genus::genus)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Abilities are ordered by slot: the regular ones (slots 1–2) come before the hidden one (slot 3).
+     */
+    private static List<Ability> abilities(PokeApiPokemonDTO pokemon) {
+        return pokemon.abilities().stream()
+                .sorted(Comparator.comparingInt(PokeApiPokemonDTO.AbilitySlot::slot))
+                .map(slot -> new Ability(slot.ability().name(), slot.hidden()))
+                .toList();
     }
 
     /**

@@ -50,10 +50,38 @@ class PokeApiHttpClientTest {
         assertThat(pikachu.name()).isEqualTo("pikachu");
         assertThat(pikachu.sprites().other().officialArtwork().frontDefault()).endsWith("/official-artwork/25.png");
         assertThat(pikachu.stats()).hasSize(6);
+        assertThat(pikachu.sprites().frontDefault()).endsWith("/sprites/pokemon/25.png");
         assertThat(pikachu.stats().getFirst().baseStat()).isEqualTo(35);
         assertThat(pikachu.types()).extracting(type -> type.type().name()).containsExactly("electric");
         assertThat(pikachu.species().url()).isEqualTo("https://pokeapi.co/api/v2/pokemon-species/25/");
+        assertThat(pikachu.weight()).isEqualTo(60);
+        assertThat(pikachu.abilities()).containsExactly(
+                new PokeApiPokemonDTO.AbilitySlot(
+                        new NamedResource("static", "https://pokeapi.co/api/v2/ability/9/"), false, 1),
+                new PokeApiPokemonDTO.AbilitySlot(
+                        new NamedResource("lightning-rod", "https://pokeapi.co/api/v2/ability/31/"), true, 3));
         server.verify();
+    }
+
+    @Test
+    void readsAPageOfThePokemonList() {
+        expectFixture("/pokemon?offset=0&limit=2", "pokemon-list.json");
+
+        PokeApiPokemonPageDTO page = client.listPokemon(0, 2);
+
+        assertThat(page.count()).isEqualTo(1351);
+        assertThat(page.results()).containsExactly(
+                new NamedResource("bulbasaur", "https://pokeapi.co/api/v2/pokemon/1/"),
+                new NamedResource("ivysaur", "https://pokeapi.co/api/v2/pokemon/2/"));
+        server.verify();
+    }
+
+    @Test
+    void translatesListFailuresToServiceUnavailable() {
+        server.expect(requestTo(BASE_URL + "/pokemon?offset=40&limit=20")).andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.listPokemon(40, 20))
+                .isInstanceOf(ExternalServiceUnavailableException.class);
     }
 
     @Test

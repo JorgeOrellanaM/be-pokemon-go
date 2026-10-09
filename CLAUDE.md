@@ -44,7 +44,8 @@ src/main/java/com/interview/pokemon_go/
     ├── pokeapi/      PokeAPI adapter (RestClient), private PokeAPI DTOs, mapper, cache   (later)
     ├── persistence/  JPA entities, Spring Data repos, persistence adapters
     │                 (rules: infrastructure/persistence/CLAUDE.md)
-    │                 (PostgresPokemonCatalogAdapter is the active PokemonCatalogPort)
+    │                 (tables kept for the US03 sync; the active PokemonCatalogPort and
+    │                  PokemonDetailsPort are the PokeAPI adapters in infrastructure/pokeapi)
     ├── security/     auth / token / password adapters                       (later)
     └── config/       @Configuration: use-case bean wiring, cache, clients
 ```

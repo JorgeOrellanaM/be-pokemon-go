@@ -29,4 +29,12 @@ class DomainExceptionTest {
         assertThat(new ExternalServiceUnavailableException("down", new RuntimeException()).category())
                 .isEqualTo(ErrorCategory.UNAVAILABLE);
     }
+
+    @Test
+    void externalServiceUnavailableCanReportAnInconsistencyWithoutCause() {
+        ExternalServiceUnavailableException ex = new ExternalServiceUnavailableException("inconsistent");
+
+        assertThat(ex.category()).isEqualTo(ErrorCategory.UNAVAILABLE);
+        assertThat(ex).hasMessage("inconsistent").hasNoCause();
+    }
 }

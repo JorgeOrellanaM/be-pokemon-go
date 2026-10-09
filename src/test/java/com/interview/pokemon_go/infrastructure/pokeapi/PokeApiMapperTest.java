@@ -1,8 +1,11 @@
 package com.interview.pokemon_go.infrastructure.pokeapi;
 
+import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.BaseStat;
 import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.PokemonDetails;
+import com.interview.pokemon_go.domain.model.PokemonSummary;
+import com.interview.pokemon_go.domain.model.Weight;
 import com.interview.pokemon_go.infrastructure.pokeapi.PokeApiSpeciesDTO.FlavorText;
 import com.interview.pokemon_go.infrastructure.pokeapi.PokeApiSpeciesDTO.Genus;
 import org.junit.jupiter.api.Test;
@@ -20,7 +23,7 @@ class PokeApiMapperTest {
 
     @Test
     void mapsAllAttributes() {
-        PokemonDetails details = PokeApiMapper.toDomain(pokemon(new PokeApiPokemonDTO.Sprites("sprite.png",
+        PokemonDetails details = PokeApiMapper.toDetails(pokemon(new PokeApiPokemonDTO.Sprites("sprite.png",
                 new PokeApiPokemonDTO.OtherSprites(new PokeApiPokemonDTO.Artwork("artwork.png")))), species(
                 List.of(new FlavorText("Electric mouse.", ENGLISH))), chain());
 
@@ -36,8 +39,29 @@ class PokeApiMapperTest {
     }
 
     @Test
+    void mapsASummaryWithTheSmallSpriteAndAbilitiesInSlotOrder() {
+        PokemonSummary summary = PokeApiMapper.toSummary(pokemon(new PokeApiPokemonDTO.Sprites("sprite.png",
+                new PokeApiPokemonDTO.OtherSprites(new PokeApiPokemonDTO.Artwork("artwork.png")))),
+                species(List.of()));
+
+        assertThat(summary).isEqualTo(new PokemonSummary(25, "pikachu", "sprite.png", "Mouse Pokémon",
+                new Weight(60), List.of(new Ability("static", false), new Ability("lightning-rod", true))));
+    }
+
+    @Test
+    void leavesTheCategoryEmptyWithoutAnEnglishGenus() {
+        PokeApiSpeciesDTO species = new PokeApiSpeciesDTO(List.of(),
+                List.of(new Genus("ねずみポケモン", JAPANESE)), null);
+
+        PokemonSummary summary = PokeApiMapper.toSummary(
+                pokemon(new PokeApiPokemonDTO.Sprites("sprite.png", null)), species);
+
+        assertThat(summary.category()).isNull();
+    }
+
+    @Test
     void fallsBackToTheDefaultSpriteWithoutOfficialArtwork() {
-        PokemonDetails details = PokeApiMapper.toDomain(
+        PokemonDetails details = PokeApiMapper.toDetails(
                 pokemon(new PokeApiPokemonDTO.Sprites("sprite.png", null)), species(List.of()), chain());
 
         assertThat(details.imageUrl()).isEqualTo("sprite.png");
@@ -63,7 +87,7 @@ class PokeApiMapperTest {
 
     @Test
     void joinsWordsSplitBySoftHyphenAtLineEnd() {
-        assertThat(PokeApiMapper.description(List.of(new FlavorText("elec­\ntricity", ENGLISH))))
+        assertThat(PokeApiMapper.description(List.of(new FlavorText("elec\u00AD\ntricity", ENGLISH))))
                 .isEqualTo("electricity");
     }
 
@@ -85,7 +109,10 @@ class PokeApiMapperTest {
     }
 
     private static PokeApiPokemonDTO pokemon(PokeApiPokemonDTO.Sprites sprites) {
-        return new PokeApiPokemonDTO(25, "pikachu", sprites,
+        return new PokeApiPokemonDTO(25, "pikachu", 60, sprites,
+                // deliberately out of slot order
+                List.of(new PokeApiPokemonDTO.AbilitySlot(new NamedResource("lightning-rod", ""), true, 3),
+                        new PokeApiPokemonDTO.AbilitySlot(new NamedResource("static", ""), false, 1)),
                 List.of(new PokeApiPokemonDTO.Stat(35, new NamedResource("hp", "")),
                         new PokeApiPokemonDTO.Stat(90, new NamedResource("speed", ""))),
                 // deliberately out of slot order
