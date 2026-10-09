@@ -5,6 +5,7 @@ import com.interview.pokemon_go.application.port.in.GetPokemonDetailsUseCase;
 import com.interview.pokemon_go.application.port.in.ListLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.ListPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.SyncPokemonUseCase;
+import com.interview.pokemon_go.application.port.in.UpdateLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.out.LocalPokemonPort;
 import com.interview.pokemon_go.application.port.out.PokemonCatalogPort;
 import com.interview.pokemon_go.application.port.out.PokemonDetailsPort;
@@ -13,6 +14,7 @@ import com.interview.pokemon_go.application.usecase.GetPokemonDetailsService;
 import com.interview.pokemon_go.application.usecase.ListLocalPokemonService;
 import com.interview.pokemon_go.application.usecase.ListPokemonService;
 import com.interview.pokemon_go.application.usecase.SyncPokemonService;
+import com.interview.pokemon_go.application.usecase.UpdateLocalPokemonService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -42,5 +44,10 @@ public class UseCaseConfig {
     @Bean
     public ListLocalPokemonUseCase listLocalPokemonUseCase(LocalPokemonPort local) {
         return new ListLocalPokemonService(local);
+    }
+
+    @Bean
+    public UpdateLocalPokemonUseCase updateLocalPokemonUseCase(LocalPokemonPort local) {
+        return new UpdateLocalPokemonService(local);
     }
 }

@@ -6,6 +6,7 @@ import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonDetails;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.Test;
@@ -69,7 +70,7 @@ class PokemonWebMapperTest {
 
     @Test
     void mapsLocalPokemonWithItsCustomFields() {
-        LocalPokemon local = new LocalPokemon(PIKACHU, "Pikachu (ES)", "Kanto", List.of("starter"));
+        LocalPokemon local = new LocalPokemon(PIKACHU, new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter")));
 
         LocalPokemonResponseDTO dto = PokemonWebMapper.toLocalResponse(local);
 
@@ -83,6 +84,20 @@ class PokemonWebMapperTest {
         assertThat(dto.localizedName()).isEqualTo("Pikachu (ES)");
         assertThat(dto.region()).isEqualTo("Kanto");
         assertThat(dto.tags()).containsExactly("starter");
+    }
+
+    @Test
+    void mapsAnUpdateRequestToACustomization() {
+        PokemonCustomization customization = PokemonWebMapper.toCustomization(
+                new UpdateLocalPokemonRequestDTO("Pikachu (ES)", "Kanto", List.of("starter")));
+
+        assertThat(customization).isEqualTo(new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter")));
+    }
+
+    @Test
+    void mapsAMissingTagListToNoTags() {
+        assertThat(PokemonWebMapper.toCustomization(new UpdateLocalPokemonRequestDTO(null, null, null)))
+                .isEqualTo(PokemonCustomization.NONE);
     }
 
     @Test

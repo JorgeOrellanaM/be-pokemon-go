@@ -2,6 +2,7 @@ package com.interview.pokemon_go.infrastructure.persistence;
 
 import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,7 @@ class PokemonPersistenceMapperTest {
     private static final LocalPokemon PIKACHU = new LocalPokemon(new PokemonSummary(25, "pikachu",
             "https://example.org/25.png", "Mouse Pokémon", new Weight(60),
             List.of(new Ability("static", false), new Ability("lightning-rod", true))),
-            "Pikachu (ES)", "Kanto", List.of("starter", "electric"));
+            new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter", "electric")));
 
     @Test
     void mapsEveryFieldToTheEntity() {

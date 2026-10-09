@@ -3,6 +3,7 @@ package com.interview.pokemon_go.application.port.out;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 
 import java.util.Optional;
 
@@ -19,6 +20,12 @@ public interface LocalPokemonPort {
     LocalPokemon save(LocalPokemon pokemon);
 
     Optional<LocalPokemon> findById(int id);
+
+    /**
+     * Replaces the custom fields of a stored Pokemon in one step; the PokeAPI data is left untouched.
+     * An id that is not stored is an empty result.
+     */
+    Optional<LocalPokemon> updateCustomization(int id, PokemonCustomization customization);
 
     PageResult<LocalPokemon> findPage(PageQuery query);
 }

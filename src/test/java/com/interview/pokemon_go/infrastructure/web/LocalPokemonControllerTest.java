@@ -3,6 +3,7 @@ package com.interview.pokemon_go.infrastructure.web;
 import com.interview.pokemon_go.application.port.in.GetLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.ListLocalPokemonUseCase;
 import com.interview.pokemon_go.application.port.in.SyncPokemonUseCase;
+import com.interview.pokemon_go.application.port.in.UpdateLocalPokemonUseCase;
 import com.interview.pokemon_go.domain.exception.DomainValidationException;
 import com.interview.pokemon_go.domain.exception.ExternalServiceUnavailableException;
 import com.interview.pokemon_go.domain.exception.PokemonAlreadySyncedException;
@@ -11,6 +12,7 @@ import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,7 +51,7 @@ class LocalPokemonControllerTest {
             List.of(new Ability("static", false), new Ability("lightning-rod", true)));
 
     private static final LocalPokemon CUSTOMIZED_PIKACHU =
-            new LocalPokemon(PIKACHU, "Pikachu (ES)", "Kanto", List.of("starter", "electric"));
+            new LocalPokemon(PIKACHU, new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter", "electric")));
 
     @Autowired
     private MockMvcTester mvc;
@@ -61,6 +64,136 @@ class LocalPokemonControllerTest {
 
     @MockitoBean
     private ListLocalPokemonUseCase listLocalPokemon;
+
+    @MockitoBean
+    private UpdateLocalPokemonUseCase updateLocalPokemon;
+
+    @Test
+    void updateReplacesTheCustomizationAndReturnsTheStoredPokemon() {
+        PokemonCustomization customization =
+                new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter", "electric"));
+        given(updateLocalPokemon.update(25, customization)).willReturn(CUSTOMIZED_PIKACHU);
+
+        MvcTestResult result = put(25, """
+                { "localizedName": " Pikachu (ES) ", "region": "Kanto", "tags": ["starter", "electric"] }
+                """);
+
+        assertThat(result).hasStatusOk().hasContentType(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().isLenientlyEqualTo("""
+                { "success": true,
+                  "data": { "id": 25, "name": "pikachu", "localizedName": "Pikachu (ES)",
+                            "region": "Kanto", "tags": ["starter", "electric"] } }
+                """);
+    }
+
+    @Test
+    void updateTreatsMissingFieldsAsCleared() {
+        given(updateLocalPokemon.update(25, PokemonCustomization.NONE)).willReturn(LocalPokemon.replicaOf(PIKACHU));
+
+        assertThat(put(25, "{}")).hasStatusOk();
+
+        verify(updateLocalPokemon).update(25, PokemonCustomization.NONE);
+    }
+
+    @Test
+    void updateReportsEveryInvalidFieldWithoutCallingTheUseCase(CapturedOutput output) {
+        MvcTestResult result = put(25, """
+                { "localizedName": "%s", "tags": ["starter", "Starter"] }
+                """.formatted("a".repeat(101)));
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST).hasContentType(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().isLenientlyEqualTo("""
+                { "success": false,
+                  "error": { "status": 400, "message": "Please check the highlighted fields.",
+                             "path": "/api/v1/local-pokemon/25",
+                             "errors": [
+                               { "field": "localizedName", "message": "must be at most 100 characters" },
+                               { "field": "tags", "message": "must not contain duplicate tags" } ] } }
+                """);
+        assertThat(output).contains("WARN").contains("status=400").doesNotContain("\tat com.interview");
+        verify(updateLocalPokemon, never()).update(anyInt(), any());
+    }
+
+    @Test
+    void updateOfAPokemonThatWasNotSyncedIsNotFound() {
+        given(updateLocalPokemon.update(4242, PokemonCustomization.NONE)).willThrow(new PokemonNotFoundException(4242));
+
+        MvcTestResult result = put(4242, "{}");
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.error.message").isEqualTo("Pokemon with id 4242 was not found");
+    }
+
+    @Test
+    void updateRejectsMalformedJsonWithoutLeakingParserDetails() {
+        MvcTestResult result = put(25, "{ \"region\": ");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().isLenientlyEqualTo("""
+                { "success": false,
+                  "error": { "status": 400,
+                             "message": "The request body is missing or invalid. Please check it and try again." } }
+                """);
+        assertThat(result).bodyText().doesNotContain("Jackson").doesNotContain("JSON parse").doesNotContain("Exception");
+        verify(updateLocalPokemon, never()).update(anyInt(), any());
+    }
+
+    @Test
+    void updateRejectsAMissingBody() {
+        MvcTestResult result = mvc.put().uri(URL + "/25").contentType(MediaType.APPLICATION_JSON).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.error.message")
+                .isEqualTo("The request body is missing or invalid. Please check it and try again.");
+    }
+
+    @Test
+    void updateNamesAFieldWithTheWrongType() {
+        MvcTestResult result = put(25, "{ \"tags\": { \"first\": \"starter\" } }");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.error.errors")
+                .isEqualTo(List.of(Map.of("field", "tags", "message", "has an invalid value")));
+        assertThat(result).bodyText().doesNotContain("java").doesNotContain("List");
+    }
+
+    @Test
+    void updateNamesAnElementWithTheWrongType() {
+        MvcTestResult result = put(25, "{ \"tags\": [\"starter\", { \"name\": \"mascot\" }] }");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.error.errors[0].field").isEqualTo("tags[1]");
+    }
+
+    @Test
+    void updateRejectsUnknownFieldsInsteadOfSilentlyIgnoringThem() {
+        MvcTestResult result = put(25, "{ \"localisedName\": \"Pikachu\" }");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.error.errors")
+                .isEqualTo(List.of(Map.of("field", "localisedName", "message", "is not a recognized field")));
+        verify(updateLocalPokemon, never()).update(anyInt(), any());
+    }
+
+    @Test
+    void updateRequiresAJsonBody() {
+        MvcTestResult result = mvc.put().uri(URL + "/25").contentType(MediaType.TEXT_PLAIN).content("Kanto").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThat(result).bodyJson().extractingPath("$.error.message").isEqualTo("The request format is not supported.");
+    }
+
+    @Test
+    void updateRejectsNonNumericId() {
+        MvcTestResult result = mvc.put().uri(URL + "/abc").contentType(MediaType.APPLICATION_JSON).content("{}").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.error.errors[0].field").isEqualTo("id");
+    }
+
+    private MvcTestResult put(int id, String json) {
+        return mvc.put().uri(URL + "/" + id).contentType(MediaType.APPLICATION_JSON).content(json).exchange();
+    }
 
     @Test
     void syncReturnsCreatedWithLocationAndTheStoredPokemon() {

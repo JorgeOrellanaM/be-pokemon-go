@@ -113,7 +113,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 
 | Exception | HTTP |
 |---|---|
-| `InvalidPageQueryException`, `DomainValidationException`, bean validation (`MethodArgumentNotValidException`, `HandlerMethodValidationException`), type mismatch, malformed query string (Tomcat `InvalidParameterException`) | 400 (include field errors) |
+| `InvalidPageQueryException`, `DomainValidationException` (its `FieldViolation`s become `errors`), type mismatch, malformed query string (Tomcat `InvalidParameterException`), missing or unparsable JSON body and unknown JSON fields (`HttpMessageNotReadableException`) | 400 (include field errors) |
 | `*NotFoundException` | 404 |
 | `*AlreadyExistsException`, `*AlreadySyncedException` | 409 |
 | `InvalidCredentialsException` / unauthenticated | 401 |
@@ -139,7 +139,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
   - `201` + `Location` for create
   - `204` for delete
 - Every response body is the shared envelope `ApiResponseDTO<T>` (`infrastructure/web`). Successes return `ApiResponseDTO.ok(data)` → `{ "success": true, "data": … }`, and errors go through `ErrorResponses` (see Error handling). A `204` has no body.
-- Request DTOs use Jakarta Validation annotations, and controllers use `@Valid`.
+- Request DTOs are plain records. Jakarta Validation is not on the classpath, so payload rules live in domain value objects (e.g. `PokemonCustomization`), which throw `DomainValidationException` with one `FieldViolation` per invalid field. Unknown JSON fields are rejected (`spring.jackson.deserialization.fail-on-unknown-properties=true`).
 
 ## Testing / TDD
 - Write the test first (red → green → refactor) for each slice.

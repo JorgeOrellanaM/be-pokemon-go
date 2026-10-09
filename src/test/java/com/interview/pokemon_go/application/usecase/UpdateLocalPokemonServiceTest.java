@@ -1,13 +1,11 @@
 package com.interview.pokemon_go.application.usecase;
 
+import com.interview.pokemon_go.application.port.out.FakePokemonCatalogAdapter;
 import com.interview.pokemon_go.application.port.out.InMemoryLocalPokemonAdapter;
 import com.interview.pokemon_go.domain.exception.DomainValidationException;
 import com.interview.pokemon_go.domain.exception.PokemonNotFoundException;
-import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PokemonCustomization;
-import com.interview.pokemon_go.domain.model.PokemonSummary;
-import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,38 +14,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class GetLocalPokemonServiceTest {
+class UpdateLocalPokemonServiceTest {
 
-    private static final LocalPokemon PIKACHU = new LocalPokemon(new PokemonSummary(25, "pikachu",
-            "https://example.org/25.png", "Mouse Pokémon", new Weight(60), List.of(new Ability("static", false))),
-            new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter")));
+    private static final PokemonCustomization CUSTOMIZATION =
+            new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter"));
 
     private final InMemoryLocalPokemonAdapter local = new InMemoryLocalPokemonAdapter();
-    private final GetLocalPokemonService service = new GetLocalPokemonService(local);
+    private final UpdateLocalPokemonService service = new UpdateLocalPokemonService(local);
 
     @Test
-    void returnsAStoredPokemon() {
-        local.save(PIKACHU);
+    void replacesTheCustomizationOfAStoredPokemon() {
+        LocalPokemon pikachu = LocalPokemon.replicaOf(new FakePokemonCatalogAdapter().findById(25).orElseThrow());
+        local.save(pikachu);
 
-        assertThat(service.getById(25)).isEqualTo(PIKACHU);
+        LocalPokemon updated = service.update(25, CUSTOMIZATION);
+
+        assertThat(updated).isEqualTo(pikachu.customizedWith(CUSTOMIZATION));
+        assertThat(local.findById(25)).contains(updated);
     }
 
     @Test
     void throwsNotFoundForAPokemonThatWasNotSynced() {
-        assertThatThrownBy(() -> service.getById(4242))
+        assertThatThrownBy(() -> service.update(4242, CUSTOMIZATION))
                 .isInstanceOf(PokemonNotFoundException.class)
                 .hasMessage("Pokemon with id 4242 was not found");
     }
 
     @Test
     void rejectsNonPositiveId() {
-        assertThatThrownBy(() -> service.getById(0))
+        assertThatThrownBy(() -> service.update(0, CUSTOMIZATION))
                 .isInstanceOf(DomainValidationException.class)
                 .hasMessage("id must be a positive whole number");
     }
 
     @Test
-    void requiresAPort() {
-        assertThatNullPointerException().isThrownBy(() -> new GetLocalPokemonService(null));
+    void requiresACustomizationAndAPort() {
+        assertThatNullPointerException().isThrownBy(() -> service.update(25, null));
+        assertThatNullPointerException().isThrownBy(() -> new UpdateLocalPokemonService(null));
     }
 }

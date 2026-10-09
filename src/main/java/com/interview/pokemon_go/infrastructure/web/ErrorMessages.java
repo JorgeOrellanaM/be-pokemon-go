@@ -16,6 +16,10 @@ final class ErrorMessages {
     static final String UNEXPECTED_ERROR = "An unexpected error occurred. Please try again later.";
     static final String SERVICE_UNAVAILABLE = "The service is temporarily unavailable. Please try again later.";
     static final String INVALID_CHARACTERS = "The request contains invalid characters. Please check it and try again.";
+    static final String UNREADABLE_BODY =
+            "The request body is missing or invalid. Please check it and try again.";
+    static final String UNKNOWN_FIELD = "is not a recognized field";
+    static final String INVALID_VALUE = "has an invalid value";
 
     private static final String INVALID_PARAMETER = "Please check the '%s' parameter.";
     private static final String DEFAULT_CLIENT_ERROR =
@@ -66,6 +70,6 @@ final class ErrorMessages {
         if (type == boolean.class || type == Boolean.class) {
             return "must be true or false";
         }
-        return "has an invalid value";
+        return INVALID_VALUE;
     }
 }

@@ -1,5 +1,6 @@
 package com.interview.pokemon_go.infrastructure.persistence;
 
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -54,10 +55,10 @@ public class PokemonEntity {
 
     // Fields below are owned by this service (US03), not copied from PokeAPI; nullable until set.
 
-    @Column(name = "localized_name", length = 100)
+    @Column(name = "localized_name", length = PokemonCustomization.MAX_TEXT_LENGTH)
     private String localizedName;
 
-    @Column(length = 100)
+    @Column(length = PokemonCustomization.MAX_TEXT_LENGTH)
     private String region;
 
     @OneToMany(mappedBy = "pokemon", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -101,6 +102,13 @@ public class PokemonEntity {
      */
     public void addTag(String name) {
         tags.add(new PokemonTagEntity(this, name));
+    }
+
+    /**
+     * Orphan removal deletes the cleared tags on the next flush.
+     */
+    public void clearTags() {
+        tags.clear();
     }
 
     public void customize(String localizedName, String region) {

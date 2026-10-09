@@ -5,6 +5,7 @@ import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +39,8 @@ public abstract class LocalPokemonPortContractTest {
 
     @Test
     void returnsWhatWasSavedIncludingCustomFields() {
-        LocalPokemon pikachu = new LocalPokemon(pokemon(25, "pikachu"), "Pikachu (ES)", "Kanto",
-                List.of("starter", "electric"));
+        LocalPokemon pikachu = new LocalPokemon(pokemon(25, "pikachu"),
+                new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter", "electric")));
 
         LocalPokemon saved = store.save(pikachu);
 
@@ -75,6 +76,44 @@ public abstract class LocalPokemonPortContractTest {
 
         assertThatThrownBy(() -> store.save(LocalPokemon.replicaOf(pokemon(1, "bulbasaur"))))
                 .isInstanceOf(PokemonAlreadySyncedException.class);
+    }
+
+    @Test
+    void updatesOnlyTheCustomizationOfAStoredPokemon() {
+        store.save(LocalPokemon.replicaOf(pokemon(25, "pikachu")));
+        PokemonCustomization customization = new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter"));
+
+        LocalPokemon updated = store.updateCustomization(25, customization).orElseThrow();
+
+        assertThat(updated).isEqualTo(LocalPokemon.replicaOf(pokemon(25, "pikachu")).customizedWith(customization));
+        assertThat(store.findById(25)).contains(updated);
+    }
+
+    @Test
+    void replacesTagsKeepingTheRequestedOrderAndAllowingTagsThatWereAlreadyThere() {
+        store.save(new LocalPokemon(pokemon(25, "pikachu"),
+                new PokemonCustomization("Pikachu", "Kanto", List.of("starter", "mascot"))));
+
+        store.updateCustomization(25, new PokemonCustomization(null, null, List.of("electric", "starter")));
+
+        assertThat(store.findById(25).orElseThrow().customization())
+                .isEqualTo(new PokemonCustomization(null, null, List.of("electric", "starter")));
+    }
+
+    @Test
+    void clearsTheCustomization() {
+        store.save(new LocalPokemon(pokemon(25, "pikachu"),
+                new PokemonCustomization("Pikachu", "Kanto", List.of("starter"))));
+
+        store.updateCustomization(25, PokemonCustomization.NONE);
+
+        assertThat(store.findById(25).orElseThrow().customization()).isEqualTo(PokemonCustomization.NONE);
+    }
+
+    @Test
+    void updatesNothingForAnUnknownId() {
+        assertThat(store.updateCustomization(4242, PokemonCustomization.NONE)).isEmpty();
+        assertThat(store.existsById(4242)).isFalse();
     }
 
     @Test

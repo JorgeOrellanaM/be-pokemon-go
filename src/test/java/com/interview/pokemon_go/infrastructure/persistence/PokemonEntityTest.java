@@ -46,6 +46,16 @@ class PokemonEntityTest {
     }
 
     @Test
+    void clearTagsRemovesEveryTag() {
+        PokemonEntity entity = new PokemonEntity(25, "pikachu", null, null, 60);
+        entity.addTag("starter");
+
+        entity.clearTags();
+
+        assertThat(entity.getTags()).isEmpty();
+    }
+
+    @Test
     void customizeSetsTheLocalFields() {
         PokemonEntity entity = new PokemonEntity(25, "pikachu", null, null, 60);
 

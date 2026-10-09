@@ -2,6 +2,8 @@ package com.interview.pokemon_go.domain.exception;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DomainExceptionTest {
@@ -14,6 +16,15 @@ class DomainExceptionTest {
     @Test
     void domainValidationIsInvalidInput() {
         assertThat(new DomainValidationException("bad").category()).isEqualTo(ErrorCategory.INVALID_INPUT);
+        assertThat(new DomainValidationException("bad").violations()).isEmpty();
+    }
+
+    @Test
+    void domainValidationCarriesFieldViolations() {
+        DomainValidationException ex = new DomainValidationException("bad",
+                List.of(new FieldViolation("region", "must be at most 100 characters")));
+
+        assertThat(ex.violations()).containsExactly(new FieldViolation("region", "must be at most 100 characters"));
     }
 
     @Test

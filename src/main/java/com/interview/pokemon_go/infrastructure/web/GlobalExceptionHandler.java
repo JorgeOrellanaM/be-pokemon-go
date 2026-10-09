@@ -1,6 +1,7 @@
 package com.interview.pokemon_go.infrastructure.web;
 
 import com.interview.pokemon_go.domain.exception.DomainException;
+import com.interview.pokemon_go.domain.exception.DomainValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.springframework.beans.TypeMismatchException;
@@ -8,6 +9,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -34,7 +38,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ApiResponseDTO<Void>> handleDomain(DomainException ex, HttpServletRequest request) {
         HttpStatus status = ErrorResponses.statusOf(ex.category());
         String message = status.is5xxServerError() ? ErrorMessages.forStatus(status) : ex.getMessage();
-        return ErrorResponses.build(ApiError.of(status, message), ex, request);
+        return ErrorResponses.build(new ApiError(status, message, fieldErrorsOf(ex)), ex, request);
+    }
+
+    /**
+     * Domain validation reports every invalid field; their messages are written for end users.
+     */
+    private static List<FieldErrorDTO> fieldErrorsOf(DomainException ex) {
+        if (ex instanceof DomainValidationException validation) {
+            return validation.violations().stream()
+                    .map(violation -> new FieldErrorDTO(violation.field(), violation.message()))
+                    .toList();
+        }
+        return List.of();
     }
 
     /**
@@ -69,10 +85,52 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 : Optional.ofNullable(ex.getPropertyName()).orElse("unknown");
         String expected = Optional.ofNullable(ex.getRequiredType())
                 .map(ErrorMessages::expectedValue)
-                .orElse("has an invalid value");
+                .orElse(ErrorMessages.INVALID_VALUE);
         ApiError error = new ApiError(HttpStatus.BAD_REQUEST, ErrorMessages.invalidParameter(field),
                 List.of(new FieldErrorDTO(field, expected)));
         return asObject(ErrorResponses.build(error, ex, servletRequest(request)));
+    }
+
+    /**
+     * A missing or unparsable JSON body is the client's mistake (400). Jackson's message names Java
+     * types and parser internals, so it is only logged; when Jackson knows which field failed, that
+     * field is reported, e.g. {@code tags[1]}: "has an invalid value".
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                  HttpHeaders headers, HttpStatusCode status,
+                                                                  WebRequest request) {
+        List<FieldErrorDTO> errors = Optional.ofNullable(ex.getCause())
+                .filter(JacksonException.class::isInstance)
+                .map(JacksonException.class::cast)
+                .filter(cause -> !cause.getPath().isEmpty())
+                .map(cause -> List.of(new FieldErrorDTO(jsonPath(cause.getPath()), bodyFieldMessage(cause))))
+                .orElse(List.of());
+        ApiError error = new ApiError(HttpStatus.BAD_REQUEST, ErrorMessages.UNREADABLE_BODY, errors);
+        return asObject(ErrorResponses.build(error, ex, servletRequest(request)));
+    }
+
+    /**
+     * Unknown fields are rejected (see {@code spring.jackson.deserialization.fail-on-unknown-properties}):
+     * with PUT semantics a misspelled field would otherwise silently clear the real one.
+     */
+    private static String bodyFieldMessage(JacksonException cause) {
+        return cause instanceof UnrecognizedPropertyException ? ErrorMessages.UNKNOWN_FIELD : ErrorMessages.INVALID_VALUE;
+    }
+
+    /**
+     * Turns Jackson's path (property names and array indexes) into {@code tags[1]} style.
+     */
+    private static String jsonPath(List<JacksonException.Reference> path) {
+        StringBuilder field = new StringBuilder();
+        for (JacksonException.Reference reference : path) {
+            if (reference.getPropertyName() != null) {
+                field.append(field.isEmpty() ? "" : ".").append(reference.getPropertyName());
+            } else if (reference.getIndex() >= 0) {
+                field.append('[').append(reference.getIndex()).append(']');
+            }
+        }
+        return field.toString();
     }
 
     /**

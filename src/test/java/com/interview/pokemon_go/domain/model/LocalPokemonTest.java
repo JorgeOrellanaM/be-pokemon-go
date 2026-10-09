@@ -2,11 +2,9 @@ package com.interview.pokemon_go.domain.model;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 class LocalPokemonTest {
@@ -15,14 +13,15 @@ class LocalPokemonTest {
             "https://example.org/25.png", "Mouse Pokémon", new Weight(60),
             List.of(new Ability("static", false), new Ability("lightning-rod", true)));
 
+    private static final PokemonCustomization CUSTOMIZATION =
+            new PokemonCustomization("Pikachu (ES)", "Kanto", List.of("starter", "electric"));
+
     @Test
-    void replicaHasThePokeApiDataAndNoCustomFields() {
+    void replicaHasThePokeApiDataAndNoCustomization() {
         LocalPokemon replica = LocalPokemon.replicaOf(PIKACHU);
 
         assertThat(replica.pokemon()).isEqualTo(PIKACHU);
-        assertThat(replica.localizedName()).isNull();
-        assertThat(replica.region()).isNull();
-        assertThat(replica.tags()).isEmpty();
+        assertThat(replica.customization()).isEqualTo(PokemonCustomization.NONE);
     }
 
     @Test
@@ -31,40 +30,16 @@ class LocalPokemonTest {
     }
 
     @Test
-    void keepsCustomFields() {
-        LocalPokemon local = new LocalPokemon(PIKACHU, "Pikachu (ES)", "Kanto", List.of("starter", "electric"));
+    void customizingReplacesOnlyTheCustomFields() {
+        LocalPokemon customized = LocalPokemon.replicaOf(PIKACHU).customizedWith(CUSTOMIZATION);
 
-        assertThat(local.localizedName()).isEqualTo("Pikachu (ES)");
-        assertThat(local.region()).isEqualTo("Kanto");
-        assertThat(local.tags()).containsExactly("starter", "electric");
+        assertThat(customized.pokemon()).isEqualTo(PIKACHU);
+        assertThat(customized.customization()).isEqualTo(CUSTOMIZATION);
     }
 
     @Test
-    void copiesTagsDefensively() {
-        List<String> tags = new ArrayList<>(List.of("starter"));
-        LocalPokemon local = new LocalPokemon(PIKACHU, null, null, tags);
-
-        tags.add("legendary");
-
-        assertThat(local.tags()).containsExactly("starter");
-    }
-
-    @Test
-    void requiresThePokemonAndTags() {
-        assertThatNullPointerException().isThrownBy(() -> new LocalPokemon(null, null, null, List.of()));
-        assertThatNullPointerException().isThrownBy(() -> new LocalPokemon(PIKACHU, null, null, null));
-    }
-
-    @Test
-    void rejectsBlankCustomTexts() {
-        assertThatIllegalArgumentException().isThrownBy(() -> new LocalPokemon(PIKACHU, " ", null, List.of()));
-        assertThatIllegalArgumentException().isThrownBy(() -> new LocalPokemon(PIKACHU, null, "", List.of()));
-    }
-
-    @Test
-    void rejectsBlankOrDuplicateTags() {
-        assertThatIllegalArgumentException().isThrownBy(() -> new LocalPokemon(PIKACHU, null, null, List.of(" ")));
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> new LocalPokemon(PIKACHU, null, null, List.of("starter", "starter")));
+    void requiresThePokemonAndTheCustomization() {
+        assertThatNullPointerException().isThrownBy(() -> new LocalPokemon(null, PokemonCustomization.NONE));
+        assertThatNullPointerException().isThrownBy(() -> new LocalPokemon(PIKACHU, null));
     }
 }

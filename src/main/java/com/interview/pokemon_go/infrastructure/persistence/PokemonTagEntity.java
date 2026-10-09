@@ -1,5 +1,6 @@
 package com.interview.pokemon_go.infrastructure.persistence;
 
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -32,7 +33,7 @@ public class PokemonTagEntity {
     @JoinColumn(name = "pokemon_id", nullable = false)
     private PokemonEntity pokemon;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = PokemonCustomization.MAX_TAG_LENGTH)
     private String name;
 
     PokemonTagEntity(PokemonEntity pokemon, String name) {

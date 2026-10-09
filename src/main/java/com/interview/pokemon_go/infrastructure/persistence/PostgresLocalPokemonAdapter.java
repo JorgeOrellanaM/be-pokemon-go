@@ -5,6 +5,7 @@ import com.interview.pokemon_go.domain.exception.PokemonAlreadySyncedException;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -70,6 +72,27 @@ public class PostgresLocalPokemonAdapter implements LocalPokemonPort {
     @Transactional(readOnly = true)
     public Optional<LocalPokemon> findById(int id) {
         return repository.findByPokedexNumber(id).map(PokemonPersistenceMapper::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public Optional<LocalPokemon> updateCustomization(int id, PokemonCustomization customization) {
+        return repository.findByPokedexNumber(id).map(entity -> {
+            entity.customize(customization.localizedName(), customization.region());
+            replaceTags(entity, customization.tags());
+            return PokemonPersistenceMapper.toDomain(entity);
+        });
+    }
+
+    /**
+     * Hibernate runs inserts before deletes when it flushes, so re-adding a tag the Pokemon already has
+     * would break the unique (pokemon_id, name) key. The removals are flushed first; then the new list
+     * is added in the requested order, which is the order tags are read back in.
+     */
+    private void replaceTags(PokemonEntity entity, List<String> tags) {
+        entity.clearTags();
+        repository.flush();
+        tags.forEach(entity::addTag);
     }
 
     @Override

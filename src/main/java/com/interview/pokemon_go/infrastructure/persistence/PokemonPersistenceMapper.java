@@ -2,6 +2,7 @@ package com.interview.pokemon_go.infrastructure.persistence;
 
 import com.interview.pokemon_go.domain.model.Ability;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 
@@ -19,8 +20,8 @@ final class PokemonPersistenceMapper {
         PokemonEntity entity = new PokemonEntity(pokemon.id(), pokemon.name(), pokemon.spriteUrl(),
                 pokemon.category(), pokemon.weight().hectograms());
         pokemon.abilities().forEach(ability -> entity.addAbility(ability.name(), ability.hidden()));
-        entity.customize(local.localizedName(), local.region());
-        local.tags().forEach(entity::addTag);
+        entity.customize(local.customization().localizedName(), local.customization().region());
+        local.customization().tags().forEach(entity::addTag);
         return entity;
     }
 
@@ -37,7 +38,7 @@ final class PokemonPersistenceMapper {
                 entity.getAbilities().stream()
                         .map(ability -> new Ability(ability.getName(), ability.isHidden()))
                         .toList());
-        return new LocalPokemon(pokemon, entity.getLocalizedName(), entity.getRegion(),
-                entity.getTags().stream().map(PokemonTagEntity::getName).toList());
+        return new LocalPokemon(pokemon, new PokemonCustomization(entity.getLocalizedName(), entity.getRegion(),
+                entity.getTags().stream().map(PokemonTagEntity::getName).toList()));
     }
 }

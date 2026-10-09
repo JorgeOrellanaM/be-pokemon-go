@@ -3,10 +3,12 @@ package com.interview.pokemon_go.infrastructure.web;
 import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonCustomization;
 import com.interview.pokemon_go.domain.model.PokemonDetails;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 final class PokemonWebMapper {
@@ -39,9 +41,18 @@ final class PokemonWebMapper {
                 pokemon.category(),
                 pokemon.weight().kilograms(),
                 toAbilityResponses(pokemon),
-                local.localizedName(),
-                local.region(),
-                local.tags());
+                local.customization().localizedName(),
+                local.customization().region(),
+                local.customization().tags());
+    }
+
+    /**
+     * PUT replaces every custom field, so a missing tag list means "no tags". Building the
+     * {@link PokemonCustomization} validates the request and fails with a 400 listing each invalid field.
+     */
+    static PokemonCustomization toCustomization(UpdateLocalPokemonRequestDTO request) {
+        return new PokemonCustomization(request.localizedName(), request.region(),
+                Optional.ofNullable(request.tags()).orElse(List.of()));
     }
 
     static PokemonDetailsResponseDTO toDetailsResponse(PokemonDetails details) {
