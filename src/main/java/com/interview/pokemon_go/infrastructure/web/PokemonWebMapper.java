@@ -1,6 +1,8 @@
 package com.interview.pokemon_go.infrastructure.web;
 
+import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonDetails;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 
 final class PokemonWebMapper {
@@ -21,6 +23,27 @@ final class PokemonWebMapper {
                 summary.abilities().stream()
                         .map(ability -> new AbilityResponseDTO(ability.name(), ability.hidden()))
                         .toList());
+    }
+
+    static PokemonDetailsResponseDTO toDetailsResponse(PokemonDetails details) {
+        return new PokemonDetailsResponseDTO(
+                details.id(),
+                details.name(),
+                details.imageUrl(),
+                details.category(),
+                details.types(),
+                details.stats().stream()
+                        .map(stat -> new BaseStatResponseDTO(stat.name(), stat.value()))
+                        .toList(),
+                details.description(),
+                toStageResponse(details.evolutionChain()));
+    }
+
+    private static EvolutionStageResponseDTO toStageResponse(EvolutionStage stage) {
+        return new EvolutionStageResponseDTO(
+                stage.id(),
+                stage.name(),
+                stage.evolvesTo().stream().map(PokemonWebMapper::toStageResponse).toList());
     }
 
     static PageResponseDTO<PokemonSummaryResponseDTO> toPageResponse(PageResult<PokemonSummary> page) {

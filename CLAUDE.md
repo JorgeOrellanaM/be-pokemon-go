@@ -22,6 +22,11 @@ infrastructure  ──►  application  ──►  domain
 - **Data access layer:** JPA entities, Spring Data repositories and `DataAccessException` stay in `infrastructure/persistence`. Persistence adapters implement `*Port` and return domain models only. Spring `Page`/`Pageable` never cross the port; use `PageResult`.
 - Business rules and validation live in `domain`/`application` and stay independent of both the API and the data access layer.
 
+## External integrations (DIP)
+
+Design an External integration to minimize coupling. Integrations with external services must follow the Dependency Inversion Principle (DIP).
+
+
 ## Folder structure
 
 ```
@@ -56,6 +61,9 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 | Adapter | `*Adapter`; stand-ins are `Fake*` / `InMemory*` | `infrastructure/*` |
 | Web DTO | `*RequestDTO` / `*ResponseDTO` (records)        | `infrastructure/web` |
 | Mapper | `*Mapper`                                       | in the adapter package that owns the mapping |
+| Remote client | `*Client` (package-private interface)          | `infrastructure/<service>` |
+| Remote client implementation | `*HttpClient`                    | `infrastructure/<service>` |
+| Integration settings | `*Properties` (`@ConfigurationProperties` record) | `infrastructure/config` |
 
 ## Domain modeling
 - Prefer Java `record`s. Validate invariants in the compact constructor and fail fast.
@@ -140,7 +148,8 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 | domain | JUnit 5 + AssertJ (pure unit tests) |
 | use cases | JUnit 5 + Mockito, or hand-written fakes of the output ports |
 | web | `@WebMvcTest` (status codes, `ApiResponseDTO` envelope / `ErrorResponseDTO` body, no leaked details; `OutputCaptureExtension` for log assertions) |
-| pokeapi adapter | `MockRestServiceServer` with JSON fixtures in `src/test/resources` |
+| pokeapi HTTP client | `MockRestServiceServer` with JSON fixtures in `src/test/resources/pokeapi` |
+| pokeapi adapter | hand-written `FakePokeApiClient` (no HTTP mocking) |
 
 - **Database:** PostgreSQL at `jdbc:postgresql://localhost:5432/pokemondb` (user/password `postgres`/`postgres`, see `application.properties`). `PokemonGoApplicationTests.contextLoads` loads the full context, so it needs that DB running. `@WebMvcTest` slices do not.
 

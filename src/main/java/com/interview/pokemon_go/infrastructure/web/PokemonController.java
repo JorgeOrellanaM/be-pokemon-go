@@ -1,8 +1,10 @@
 package com.interview.pokemon_go.infrastructure.web;
 
+import com.interview.pokemon_go.application.port.in.GetPokemonDetailsUseCase;
 import com.interview.pokemon_go.application.port.in.ListPokemonUseCase;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,9 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PokemonController {
 
     private final ListPokemonUseCase listPokemon;
+    private final GetPokemonDetailsUseCase getPokemonDetails;
 
-    public PokemonController(ListPokemonUseCase listPokemon) {
+    public PokemonController(ListPokemonUseCase listPokemon, GetPokemonDetailsUseCase getPokemonDetails) {
         this.listPokemon = listPokemon;
+        this.getPokemonDetails = getPokemonDetails;
     }
 
     /**
@@ -25,5 +29,13 @@ public class PokemonController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponseDTO.ok(PokemonWebMapper.toPageResponse(listPokemon.list(new PageQuery(page, size))));
+    }
+
+    /**
+     * US02 - Detailed view. The id is the Pokédex number; its validation lives in the use case.
+     */
+    @GetMapping("/{id}")
+    public ApiResponseDTO<PokemonDetailsResponseDTO> getById(@PathVariable int id) {
+        return ApiResponseDTO.ok(PokemonWebMapper.toDetailsResponse(getPokemonDetails.getById(id)));
     }
 }

@@ -39,3 +39,6 @@ Create only the folder structure, interfaces and fake infrastructure implementat
     prompt: 'Review all controller classes and standardize their API responses using a single, shared Response class.
     This class must support both successful responses and error responses through an ErrorResponseDTO. Ensure that all
     controllers and error handler follow this response structure consistently.'
+19. implement user story 2
+20. make external service low coupling
+    prompt: 'Design the REST client to minimize coupling. Integrations with external services must follow the Dependency Inversion Principle (DIP).'

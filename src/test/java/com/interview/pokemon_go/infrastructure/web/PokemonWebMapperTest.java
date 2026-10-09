@@ -1,7 +1,10 @@
 package com.interview.pokemon_go.infrastructure.web;
 
 import com.interview.pokemon_go.domain.model.Ability;
+import com.interview.pokemon_go.domain.model.BaseStat;
+import com.interview.pokemon_go.domain.model.EvolutionStage;
 import com.interview.pokemon_go.domain.model.PageResult;
+import com.interview.pokemon_go.domain.model.PokemonDetails;
 import com.interview.pokemon_go.domain.model.PokemonSummary;
 import com.interview.pokemon_go.domain.model.Weight;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,27 @@ class PokemonWebMapperTest {
         assertThat(dto.weightKg()).isEqualTo(6.0);
         assertThat(dto.abilities()).containsExactly(
                 new AbilityResponseDTO("static", false), new AbilityResponseDTO("lightning-rod", true));
+    }
+
+    @Test
+    void mapsDetailsWithNestedEvolutionChain() {
+        PokemonDetails details = new PokemonDetails(25, "pikachu", "https://example.org/25.png",
+                "Mouse Pokémon", List.of("electric"), List.of(new BaseStat("hp", 35)), "Electric mouse.",
+                new EvolutionStage(172, "pichu", List.of(new EvolutionStage(25, "pikachu",
+                        List.of(new EvolutionStage(26, "raichu", List.of()))))));
+
+        PokemonDetailsResponseDTO dto = PokemonWebMapper.toDetailsResponse(details);
+
+        assertThat(dto.id()).isEqualTo(25);
+        assertThat(dto.name()).isEqualTo("pikachu");
+        assertThat(dto.imageUrl()).isEqualTo("https://example.org/25.png");
+        assertThat(dto.category()).isEqualTo("Mouse Pokémon");
+        assertThat(dto.types()).containsExactly("electric");
+        assertThat(dto.stats()).containsExactly(new BaseStatResponseDTO("hp", 35));
+        assertThat(dto.description()).isEqualTo("Electric mouse.");
+        assertThat(dto.evolutionChain()).isEqualTo(new EvolutionStageResponseDTO(172, "pichu",
+                List.of(new EvolutionStageResponseDTO(25, "pikachu",
+                        List.of(new EvolutionStageResponseDTO(26, "raichu", List.of()))))));
     }
 
     @Test
