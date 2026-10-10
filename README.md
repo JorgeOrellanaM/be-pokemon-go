@@ -34,7 +34,7 @@ REST API built with **Java 25** and **Spring Boot 4.1.1**, using Clean Architect
 | **US04: Local edit** | Replaces the custom fields of a stored Pokemon. Returns `404` if the Pokemon is not stored and `400` for an invalid body, listing every invalid field | `PUT /api/v1/local-pokemon/{id}` |
 | **Auth** | Lets users register and log in, and returns the current user. Reads are public; writes need a token | `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me` |
 
-> **Caching (nice to have):** this is not implemented yet. To keep a catalog page fast without a cache, the PokeAPI adapter makes its per-Pokemon calls in parallel (`PokeApiPokemonCatalogAdapter`). Because the API depends only on the `PokemonCatalogPort` interface, a cache could be added later as an extra adapter without changing any use case.
+> **Caching (nice to have): implemented.** PokeAPI responses are cached in memory with Caffeine (24h TTL by default). A cold catalog page of 20 Pokemon takes about 1.3 s, because it needs 41 PokeAPI calls, which are made in parallel. Once cached, the same page takes a few milliseconds. See [PokeAPI cache](#pokeapi-cache).
 
 ---
 
@@ -47,6 +47,7 @@ REST API built with **Java 25** and **Spring Boot 4.1.1**, using Clean Architect
 | Security | Spring Security OAuth2 Resource Server: stateless JWT (HS256), BCrypt password hashes |
 | Database | PostgreSQL (schema created by Hibernate `ddl-auto=update`, demo data from `data.sql`) |
 | External API | PokeAPI v2 through Spring `RestClient` (connect/read timeouts) |
+| Cache | Spring Cache + Caffeine (in memory, TTL + max size) for PokeAPI responses |
 | Tests | JUnit 5, AssertJ, Mockito, `@WebMvcTest`, `@DataJpaTest`, `MockRestServiceServer` |
 
 ---
@@ -113,6 +114,8 @@ All settings are in `src/main/resources/application*.properties`. Use environmen
 | `jwt.issuer` | | `pokemon-go` | |
 | `pokeapi.base-url` | | `https://pokeapi.co/api/v2` | |
 | `pokeapi.connect-timeout` / `pokeapi.read-timeout` | | `3s` / `5s` | When PokeAPI is slow or down, the API returns `503` |
+| `pokeapi.cache.ttl` | | `24h` | How long a PokeAPI response is reused |
+| `pokeapi.cache.max-entries` | | `2000` | Maximum entries **per cache** (there are four caches) |
 | `spring.jackson.deserialization.fail-on-unknown-properties` | | `true` | Unknown JSON fields are rejected with `400` |
 
 **Profiles**
@@ -331,9 +334,10 @@ src/main/java/com/interview/pokemon_go/
 
 - **Framework-free core.** `domain` and `application` import no Spring, JPA, Jackson or HTTP types. Use-case classes have no annotations; they are registered as beans with `@Bean` methods in `infrastructure/config/UseCaseConfig`.
 - **Controllers depend on input ports, and use cases depend on output ports.** Neither ever depends on an implementation.
-- **External integration through DIP.** PokeAPI sits behind `PokemonCatalogPort` / `PokemonDetailsPort`. Inside `infrastructure/pokeapi`, the adapters use a package-private `PokeApiClient` interface (implemented by `PokeApiHttpClient`), and the PokeAPI DTOs never leave that package. To replace PokeAPI or add a cache, you only touch infrastructure.
+- **External integration through DIP.** PokeAPI sits behind `PokemonCatalogPort` / `PokemonDetailsPort`. Inside `infrastructure/pokeapi`, the adapters use a package-private `PokeApiClient` interface (implemented by `PokeApiHttpClient`), and the PokeAPI DTOs never leave that package. Replacing PokeAPI only touches infrastructure, and so did adding the cache.
 - **Business rules live in the domain.** Records check every invariant in their compact constructors and fail fast. Value objects replace raw primitives: `Weight` converts PokeAPI hectograms to kg, `PageQuery` enforces size 1–50, and `PokemonCustomization` holds the US04 rules (trimming, max lengths, at most 10 unique tags). Validation errors are collected into a `DomainValidationException` with one `FieldViolation` per broken rule.
 - **The data access layer stays isolated.** Entities, repositories and `DataAccessException` remain in `infrastructure/persistence`. Adapters return domain models only, and Spring `Page`/`Pageable` never cross a port (the domain uses `PageResult` instead). The database `id` never leaves persistence; the domain identifies Pokemon by their Pokédex number.
+- **PokeAPI cache.** <a id="pokeapi-cache"></a>The cache sits on the raw PokeAPI resources: `@Cacheable` on the four `PokeApiHttpClient` methods, one cache each for list pages, Pokemon, species and evolution chains. It is configured in `infrastructure/config/CacheConfig` with a Caffeine `CacheManager` and fixed cache names. Because it caches resources rather than port results, the catalog, the details view and sync all share it (for example, a species fetched for the list is reused by the details view). `sync = true` makes parallel requests for the same key call PokeAPI only once. Errors are never cached, so after a PokeAPI outage the next request tries again. An unknown id (PokeAPI's 404) is cached until the TTL expires. The domain and use cases know nothing about the cache.
 - **Sync is create-only.** Syncing an already stored Pokemon returns `409`, so custom fields are never silently overwritten. `PUT` replaces all the custom fields, and unknown JSON fields are rejected so that a typo can't clear a value.
 - **Error handling in one place.** `GlobalExceptionHandler` (controller errors), `ApiErrorController` (replaces Boot's `/error`) and `ApiSecurityErrorHandler` (401/403) all build their responses through `ErrorResponses`. Any error caused by the client's request is a 4xx, even when Tomcat or Spring throws it; `500` is reserved for faults on our side.
 - **Authentication.** Passwords are hashed with BCrypt. Login returns a 1-hour HS256 JWT, which Spring's resource server validates on each request. Usernames are case-insensitive and stored in lowercase. Login gives the same `401` message for an unknown user and a wrong password.
@@ -370,6 +374,7 @@ The project was developed **test-first** (red → green → refactor), one slice
 | port contracts | Abstract contract tests (`*PortContractTest`) run against **both** the fakes and the real adapters, so the fakes behave like production |
 | web | `@WebMvcTest` for status codes, the `ApiResponseDTO` envelope, no leaked technical details, and log levels (`OutputCaptureExtension`). Security rules come from `@ImportApiSecurity`, and protected calls use `.with(jwt())` |
 | PokeAPI HTTP client | `MockRestServiceServer` with JSON fixtures in `src/test/resources/pokeapi` |
+| PokeAPI cache | `PokeApiHttpClientCachingTest`: a slim Spring context with the real cache proxy checks that each resource is fetched once, that keys are cached separately, that unknown ids are remembered and that failures are not cached |
 | PokeAPI adapters | Hand-written `FakePokeApiClient` (no HTTP mocking) |
 | persistence | Spring Data / Postgres adapter tests against the database |
 | security | BCrypt hasher and JWT issuer adapters, plus the route policy (`SecurityRulesTest`) |

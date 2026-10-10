@@ -41,13 +41,14 @@ src/main/java/com/interview/pokemon_go/
 │   └── usecase/      interactors — *Service implementing input ports
 └── infrastructure/
     ├── web/          @RestControllers, *Request/*Response DTOs, *WebMapper, GlobalExceptionHandler
-    ├── pokeapi/      PokeAPI adapter (RestClient), private PokeAPI DTOs, mapper, cache   (later)
+    ├── pokeapi/      PokeAPI adapter (RestClient), private PokeAPI DTOs, mapper;
+    │                 responses cached with @Cacheable on PokeApiHttpClient (Caffeine, config/CacheConfig)
     ├── persistence/  JPA entities, Spring Data repos, persistence adapters
     │                 (rules: infrastructure/persistence/CLAUDE.md)
     │                 (LocalPokemonPort adapter: US03 local copies + custom fields; the
     │                  PokemonCatalogPort and PokemonDetailsPort adapters live in infrastructure/pokeapi)
     ├── security/     PasswordHasherPort (BCrypt) and AccessTokenIssuerPort (JWT) adapters
-    └── config/       @Configuration: use-case bean wiring, cache, clients
+    └── config/       @Configuration: use-case bean wiring, cache (CacheConfig), clients
 ```
 
 Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.

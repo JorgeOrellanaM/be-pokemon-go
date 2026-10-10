@@ -33,8 +33,9 @@ public class PokeApiPokemonCatalogAdapter implements PokemonCatalogPort {
     /**
      * PokeAPI's list only returns names and links, in Pokédex order, plus the total. The sprite,
      * weight and abilities come from each Pokemon and the category from its species, so a page costs
-     * 1 + 2 × size calls. Without a cache these are made in parallel, which keeps a page at about
-     * three round trips instead of one per call; results are joined in list order.
+     * 1 + 2 × size calls. {@link PokeApiClient} responses are cached, so this cost is only paid for
+     * resources not seen yet; those calls are made in parallel, which keeps a cold page at about three
+     * round trips instead of one per call. Results are joined in list order.
      */
     @Override
     public PageResult<PokemonSummary> findPage(PageQuery query) {

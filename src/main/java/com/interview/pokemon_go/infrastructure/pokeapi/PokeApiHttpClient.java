@@ -1,8 +1,10 @@
 package com.interview.pokemon_go.infrastructure.pokeapi;
 
 import com.interview.pokemon_go.domain.exception.ExternalServiceUnavailableException;
+import com.interview.pokemon_go.infrastructure.config.CacheConfig;
 import com.interview.pokemon_go.infrastructure.config.PokeApiClientConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -26,15 +28,18 @@ class PokeApiHttpClient implements PokeApiClient {
      * The list is the entry point of the catalog and must always answer, so every failure is a 503.
      */
     @Override
+    @Cacheable(cacheNames = CacheConfig.POKEAPI_POKEMON_PAGES, sync = true)
     public PokeApiPokemonPageDTO listPokemon(int offset, int limit) {
         return getRequired(PokeApiPokemonPageDTO.class, "/pokemon?offset={offset}&limit={limit}", offset, limit);
     }
 
     /**
      * A 404 here is the only "not found" PokeAPI can answer for a client's request: the id the
-     * client asked for does not exist.
+     * client asked for does not exist. That answer is cached too: it will not change within the TTL,
+     * and repeated requests for an unknown id then never reach PokeAPI.
      */
     @Override
+    @Cacheable(cacheNames = CacheConfig.POKEAPI_POKEMON, sync = true)
     public Optional<PokeApiPokemonDTO> findPokemon(int id) {
         try {
             return Optional.of(get(PokeApiPokemonDTO.class, "/pokemon/{id}", id));
@@ -46,11 +51,13 @@ class PokeApiHttpClient implements PokeApiClient {
     }
 
     @Override
+    @Cacheable(cacheNames = CacheConfig.POKEAPI_SPECIES, sync = true)
     public PokeApiSpeciesDTO getSpecies(int id) {
         return getRequired(PokeApiSpeciesDTO.class, "/pokemon-species/{id}", id);
     }
 
     @Override
+    @Cacheable(cacheNames = CacheConfig.POKEAPI_EVOLUTION_CHAINS, sync = true)
     public PokeApiEvolutionChainDTO getEvolutionChain(int id) {
         return getRequired(PokeApiEvolutionChainDTO.class, "/evolution-chain/{id}", id);
     }
