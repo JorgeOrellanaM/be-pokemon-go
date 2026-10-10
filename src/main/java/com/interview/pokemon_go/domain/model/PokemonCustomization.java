@@ -21,7 +21,6 @@ public record PokemonCustomization(String localizedName, String region, List<Str
     public static final int MAX_TAG_LENGTH = 50;
     public static final int MAX_TAGS = 10;
 
-    private static final String INVALID = "Please check the highlighted fields.";
     private static final String TEXT_TOO_LONG = "must be at most " + MAX_TEXT_LENGTH + " characters";
     private static final String TOO_MANY_TAGS = "must contain at most " + MAX_TAGS + " tags";
     private static final String EMPTY_TAG = "must not contain empty tags";
@@ -43,7 +42,7 @@ public record PokemonCustomization(String localizedName, String region, List<Str
         checkLength(region, "region", violations);
         tags = normalizeTags(tags, violations);
         if (!violations.isEmpty()) {
-            throw new DomainValidationException(INVALID, violations);
+            throw new DomainValidationException(DomainValidationException.CHECK_FIELDS, violations);
         }
     }
 

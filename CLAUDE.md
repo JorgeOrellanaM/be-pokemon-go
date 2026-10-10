@@ -2,7 +2,7 @@
 
 ## Hard constraints
 - Keep this a **single Gradle module**. Clean Architecture layers are packages, not modules.
-- Do not add, modify, upgrade, or remove any project dependencies.
+- Do not add, modify, upgrade, or remove any project dependencies unless explicitly requested by the user.
 - Never add Docker or deployment files unless the user explicitly asks.
 
 ## Clean Architecture
@@ -46,7 +46,7 @@ src/main/java/com/interview/pokemon_go/
     │                 (rules: infrastructure/persistence/CLAUDE.md)
     │                 (LocalPokemonPort adapter: US03 local copies + custom fields; the
     │                  PokemonCatalogPort and PokemonDetailsPort adapters live in infrastructure/pokeapi)
-    ├── security/     auth / token / password adapters                       (later)
+    ├── security/     PasswordHasherPort (BCrypt) and AccessTokenIssuerPort (JWT) adapters
     └── config/       @Configuration: use-case bean wiring, cache, clients
 ```
 
@@ -134,6 +134,7 @@ Tests mirror this structure under `src/test/java/com/interview/pokemon_go/`.
 
 ## API conventions
 - Every route is prefixed with `/api/v1`.
+- **Route policy** (`infrastructure/config/SecurityConfig`): register, login and every `GET` under `/pokemon` and `/local-pokemon` are public; writes and `/auth/me` need a JWT bearer token; anything else is denied by default, so a new endpoint is protected until it is deliberately listed as public. Stateless (no session, no CSRF). Security 401/403 answers go through `ApiSecurityErrorHandler` → `ErrorResponses`. `@WebMvcTest`s load the policy with `@ImportApiSecurity` and send protected requests `.with(jwt())`.
 - Use standard HTTP verbs and statuses:
   - `200` for reads and updates
   - `201` + `Location` for create

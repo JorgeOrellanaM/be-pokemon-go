@@ -38,9 +38,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 @WebMvcTest(LocalPokemonController.class)
 @Import(GlobalExceptionHandler.class)
+@ImportApiSecurity
 @ExtendWith(OutputCaptureExtension.class)
 class LocalPokemonControllerTest {
 
@@ -140,7 +142,7 @@ class LocalPokemonControllerTest {
 
     @Test
     void updateRejectsAMissingBody() {
-        MvcTestResult result = mvc.put().uri(URL + "/25").contentType(MediaType.APPLICATION_JSON).exchange();
+        MvcTestResult result = mvc.put().uri(URL + "/25").with(jwt()).contentType(MediaType.APPLICATION_JSON).exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(result).bodyJson().extractingPath("$.error.message")
@@ -177,7 +179,7 @@ class LocalPokemonControllerTest {
 
     @Test
     void updateRequiresAJsonBody() {
-        MvcTestResult result = mvc.put().uri(URL + "/25").contentType(MediaType.TEXT_PLAIN).content("Kanto").exchange();
+        MvcTestResult result = mvc.put().uri(URL + "/25").with(jwt()).contentType(MediaType.TEXT_PLAIN).content("Kanto").exchange();
 
         assertThat(result).hasStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
         assertThat(result).bodyJson().extractingPath("$.error.message").isEqualTo("The request format is not supported.");
@@ -185,21 +187,21 @@ class LocalPokemonControllerTest {
 
     @Test
     void updateRejectsNonNumericId() {
-        MvcTestResult result = mvc.put().uri(URL + "/abc").contentType(MediaType.APPLICATION_JSON).content("{}").exchange();
+        MvcTestResult result = mvc.put().uri(URL + "/abc").with(jwt()).contentType(MediaType.APPLICATION_JSON).content("{}").exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(result).bodyJson().extractingPath("$.error.errors[0].field").isEqualTo("id");
     }
 
     private MvcTestResult put(int id, String json) {
-        return mvc.put().uri(URL + "/" + id).contentType(MediaType.APPLICATION_JSON).content(json).exchange();
+        return mvc.put().uri(URL + "/" + id).with(jwt()).contentType(MediaType.APPLICATION_JSON).content(json).exchange();
     }
 
     @Test
     void syncReturnsCreatedWithLocationAndTheStoredPokemon() {
         given(syncPokemon.sync(25)).willReturn(LocalPokemon.replicaOf(PIKACHU));
 
-        MvcTestResult result = mvc.post().uri(URL + "/25/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/25/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.CREATED).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).headers().hasValue(HttpHeaders.LOCATION, "http://localhost/api/v1/local-pokemon/25");
@@ -228,7 +230,7 @@ class LocalPokemonControllerTest {
     void syncOfAnAlreadySyncedPokemonIsAConflictLoggedAsWarning(CapturedOutput output) {
         given(syncPokemon.sync(25)).willThrow(new PokemonAlreadySyncedException(25));
 
-        MvcTestResult result = mvc.post().uri(URL + "/25/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/25/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.CONFLICT).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
@@ -245,7 +247,7 @@ class LocalPokemonControllerTest {
     void syncOfAPokemonUnknownToPokeApiIsNotFound() {
         given(syncPokemon.sync(99999)).willThrow(new PokemonNotFoundException(99999));
 
-        MvcTestResult result = mvc.post().uri(URL + "/99999/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/99999/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.error.message")
@@ -257,7 +259,7 @@ class LocalPokemonControllerTest {
         given(syncPokemon.sync(25)).willThrow(
                 new ExternalServiceUnavailableException("PokeAPI is unavailable", new RuntimeException()));
 
-        MvcTestResult result = mvc.post().uri(URL + "/25/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/25/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(result).bodyJson().extractingPath("$.error.message")
@@ -267,7 +269,7 @@ class LocalPokemonControllerTest {
 
     @Test
     void syncRejectsNonNumericIdWithFriendlyFieldError() {
-        MvcTestResult result = mvc.post().uri(URL + "/abc/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/abc/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
@@ -282,7 +284,7 @@ class LocalPokemonControllerTest {
     void syncRejectsInvalidIdWithDomainMessage() {
         given(syncPokemon.sync(0)).willThrow(new DomainValidationException("id must be a positive whole number"));
 
-        MvcTestResult result = mvc.post().uri(URL + "/0/sync").exchange();
+        MvcTestResult result = mvc.post().uri(URL + "/0/sync").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(result).bodyJson().extractingPath("$.error.message")

@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * forwards to {@code /error}.
  */
 @WebMvcTest(ApiErrorController.class)
+@ImportApiSecurity
 @ExtendWith(OutputCaptureExtension.class)
 class ApiErrorControllerTest {
 

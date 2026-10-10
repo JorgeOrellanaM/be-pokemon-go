@@ -44,6 +44,25 @@ class DomainExceptionTest {
     }
 
     @Test
+    void usernameAlreadyExistsIsConflictWithFriendlyMessage() {
+        UsernameAlreadyExistsException ex = new UsernameAlreadyExistsException("ash");
+
+        assertThat(ex.category()).isEqualTo(ErrorCategory.CONFLICT);
+        assertThat(ex.getMessage()).isEqualTo("The username 'ash' is already taken");
+    }
+
+    /**
+     * The same message whatever was wrong, so a login attempt never reveals which usernames exist.
+     */
+    @Test
+    void invalidCredentialsIsUnauthenticatedWithAGenericMessage() {
+        InvalidCredentialsException ex = new InvalidCredentialsException();
+
+        assertThat(ex.category()).isEqualTo(ErrorCategory.UNAUTHENTICATED);
+        assertThat(ex.getMessage()).isEqualTo("Invalid username or password.");
+    }
+
+    @Test
     void externalServiceUnavailableIsUnavailable() {
         assertThat(new ExternalServiceUnavailableException("down", new RuntimeException()).category())
                 .isEqualTo(ErrorCategory.UNAVAILABLE);

@@ -6,7 +6,6 @@ import com.interview.pokemon_go.domain.model.LocalPokemon;
 import com.interview.pokemon_go.domain.model.PageQuery;
 import com.interview.pokemon_go.domain.model.PageResult;
 import com.interview.pokemon_go.domain.model.PokemonCustomization;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,20 +47,11 @@ public class PostgresLocalPokemonAdapter implements LocalPokemonPort {
             return PokemonPersistenceMapper.toDomain(
                     repository.saveAndFlush(PokemonPersistenceMapper.toEntity(pokemon)));
         } catch (DataIntegrityViolationException e) {
-            if (isUniqueViolation(e)) {
+            if (UniqueViolations.isUniqueViolation(e)) {
                 throw new PokemonAlreadySyncedException(pokemon.id());
             }
             throw e;
         }
-    }
-
-    /**
-     * Only a unique-key violation means "already stored"; any other integrity error (e.g. a value too
-     * long for its column) is our fault and must stay a 500.
-     */
-    private static boolean isUniqueViolation(DataIntegrityViolationException e) {
-        return e.getCause() instanceof ConstraintViolationException violation
-                && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE;
     }
 
     /**

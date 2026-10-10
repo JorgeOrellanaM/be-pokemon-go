@@ -37,9 +37,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 @WebMvcTest(PokemonController.class)
 @Import(GlobalExceptionHandler.class)
+@ImportApiSecurity
 @ExtendWith(OutputCaptureExtension.class)
 class PokemonControllerTest {
 
@@ -178,7 +180,7 @@ class PokemonControllerTest {
 
     @Test
     void rejectsUnsupportedMethodWithFriendlyMessage() {
-        MvcTestResult result = mvc.post().uri(URL).exchange();
+        MvcTestResult result = mvc.post().uri(URL).with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.METHOD_NOT_ALLOWED).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""
@@ -190,7 +192,7 @@ class PokemonControllerTest {
 
     @Test
     void returnsFriendlyNotFoundForUnknownRoute() {
-        MvcTestResult result = mvc.get().uri("/api/v1/unknown").exchange();
+        MvcTestResult result = mvc.get().uri("/api/v1/unknown").with(jwt()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND).hasContentType(MediaType.APPLICATION_JSON);
         assertThat(result).bodyJson().isLenientlyEqualTo("""

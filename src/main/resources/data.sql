@@ -52,3 +52,8 @@ FROM (VALUES
 ) AS t (pokedex_number, name)
 JOIN pokemon p ON p.pokedex_number = t.pokedex_number
 ON CONFLICT (pokemon_id, name) DO NOTHING;
+
+-- Demo account for the protected routes: username "demo", password "Pokemon123!" (BCrypt, cost 10).
+INSERT INTO app_user (username, password_hash, created_at) VALUES
+    ('demo', '$2a$10$9tG/1aAsT8LcmFHWJRCvrukp0grQqdL9N2Scj2qmqsZKSrb71uVJS', CURRENT_TIMESTAMP)
+ON CONFLICT (username) DO NOTHING;

@@ -5,19 +5,24 @@ REST API over [PokeAPI](https://pokeapi.co/docs/v2). This file describes every e
 - **Base URL (local):** `http://localhost:8080`
 - **Prefix:** every route starts with `/api/v1`
 - **Content type:** `application/json` (UTF-8) for request and response bodies
-- **Authentication:** none yet. No `Authorization` header is needed.
+- **Authentication:** JWT bearer token. Reads are public; writes (sync, update) and `/auth/me` need `Authorization: Bearer <accessToken>` from [login](#8-log-in). See [Authentication](#authentication).
 - **CORS:** not configured on the backend. During development, send requests through a dev-server proxy (e.g. Vite `server.proxy` → `http://localhost:8080`).
 
 ## Endpoints at a glance
 
-| # | Method | Path | Purpose | Success |
-|---|---|---|---|---|
-| 1 | `GET` | `/api/v1/pokemon` | Browse the PokeAPI catalog (paged) | `200` |
-| 2 | `GET` | `/api/v1/pokemon/{id}` | Detailed view of one Pokemon, from PokeAPI | `200` |
-| 3 | `POST` | `/api/v1/local-pokemon/{id}/sync` | Copy one Pokemon from PokeAPI into the local DB | `201` + `Location` |
-| 4 | `GET` | `/api/v1/local-pokemon` | List Pokemon stored locally (paged) | `200` |
-| 5 | `GET` | `/api/v1/local-pokemon/{id}` | One locally stored Pokemon | `200` |
-| 6 | `PUT` | `/api/v1/local-pokemon/{id}` | Replace the custom fields of a local Pokemon | `200` |
+| # | Method | Path | Purpose | Auth | Success |
+|---|---|---|---|---|---|
+| 1 | `GET` | `/api/v1/pokemon` | Browse the PokeAPI catalog (paged) | public | `200` |
+| 2 | `GET` | `/api/v1/pokemon/{id}` | Detailed view of one Pokemon, from PokeAPI | public | `200` |
+| 3 | `POST` | `/api/v1/local-pokemon/{id}/sync` | Copy one Pokemon from PokeAPI into the local DB | **token** | `201` + `Location` |
+| 4 | `GET` | `/api/v1/local-pokemon` | List Pokemon stored locally (paged) | public | `200` |
+| 5 | `GET` | `/api/v1/local-pokemon/{id}` | One locally stored Pokemon | public | `200` |
+| 6 | `PUT` | `/api/v1/local-pokemon/{id}` | Replace the custom fields of a local Pokemon | **token** | `200` |
+| 7 | `POST` | `/api/v1/auth/register` | Create a user account | public | `201` + `Location` |
+| 8 | `POST` | `/api/v1/auth/login` | Exchange username + password for an access token | public | `200` |
+| 9 | `GET` | `/api/v1/auth/me` | The user the token belongs to | **token** | `200` |
+
+Any route not listed is denied by default: without a token it answers `401`, with a valid token `404`.
 
 `{id}` is always the **Pokédex number** (Bulbasaur = 1, Pikachu = 25). It must be a positive whole number.
 
@@ -280,7 +285,7 @@ Header: `Location: http://localhost:8080/api/v1/local-pokemon/6`
 }
 ```
 
-**Errors:** `400` (invalid id), `404` (id does not exist in PokeAPI), `409` (already synced), `503` (PokeAPI unreachable).
+**Errors:** `400` (invalid id), `401` (missing/invalid/expired token), `404` (id does not exist in PokeAPI), `409` (already synced), `503` (PokeAPI unreachable).
 
 `409` example:
 
@@ -552,7 +557,97 @@ The same `field` can appear more than once (one entry per broken rule). Possible
 
 A value of the wrong type (e.g. `"tags": ["ok", {}]`) reports `{ "field": "tags[1]", "message": "has an invalid value" }`. A missing or malformed body returns the same message with no `errors`.
 
-**Errors:** `400` (validation, invalid id, invalid/unknown JSON), `404` (not synced yet), `415` (missing `Content-Type: application/json`).
+**Errors:** `400` (validation, invalid id, invalid/unknown JSON), `401` (missing/invalid/expired token), `404` (not synced yet), `415` (missing `Content-Type: application/json`).
+
+---
+
+## Authentication
+
+> Frontend implementation guide (flow, every error case, TypeScript client): **[AUTH.md](AUTH.md)**.
+
+Stateless JWT bearer tokens (HS256, valid for **1 hour**). There is no refresh token and no logout endpoint: the client forgets the token, and after `expiresAt` it must log in again. Send it on protected routes as:
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+A protected route called without a token, or with a malformed, tampered or expired one, answers `401` with header `WWW-Authenticate: Bearer`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "status": 401,
+    "error": "Unauthorized",
+    "message": "Authentication is required to access this resource.",
+    "path": "/api/v1/local-pokemon/25",
+    "timestamp": "2026-10-10T11:46:04.217Z",
+    "errorId": "c472d152"
+  }
+}
+```
+
+### 7. Register
+
+`POST /api/v1/auth/register`
+
+| Field | Rules |
+|---|---|
+| `username` | required, 3–30 characters, letters, digits, `.`, `_`, `-`. Case-insensitive: stored in lowercase (`" Ash "` → `"ash"`). |
+| `password` | required, 8–72 characters (72 UTF-8 bytes). Kept exactly as typed. |
+
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{ "username": "ash", "password": "Pikachu123!" }
+```
+
+**Response `201`** — header `Location: http://localhost:8080/api/v1/auth/me`. Registering does **not** log in; call login next.
+
+```json
+{ "success": true, "data": { "username": "ash" } }
+```
+
+**Errors:** `400` (one entry per invalid field in `errors`, unknown JSON fields), `409` (`The username 'ash' is already taken`).
+
+### 8. Log in
+
+`POST /api/v1/auth/login`
+
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{ "username": "demo", "password": "Pokemon123!" }
+```
+
+**Response `200`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresAt": "2026-10-10T12:46:05Z"
+  }
+}
+```
+
+**Errors:** `400` (`username` or `password` missing/blank), `401` with `Invalid username or password.` (the same message for an unknown user and a wrong password).
+
+### 9. Current user
+
+`GET /api/v1/auth/me` (token required)
+
+**Response `200`**
+
+```json
+{ "success": true, "data": { "username": "demo" } }
+```
+
+**Errors:** `401` (missing/invalid/expired token).
 
 ---
 
@@ -563,14 +658,18 @@ A value of the wrong type (e.g. `"tags": ["ok", {}]`) reports `{ "field": "tags[
 | `400` | Invalid `page`/`size` | `size must be between 1 and 50` · `page must be greater than or equal to 0` | — |
 | `400` | Non-numeric query/path value (`?page=abc`, `/pokemon/abc`) | `Please check the 'page' parameter.` | `[{ "field": "page", "message": "must be a whole number" }]` |
 | `400` | Id `<= 0` | `id must be a positive whole number` | — |
-| `400` | Body validation (PUT) | `Please check the highlighted fields.` | one per invalid field |
+| `400` | Body validation (PUT, register, login) | `Please check the highlighted fields.` | one per invalid field |
 | `400` | Missing/malformed JSON, unknown field | `The request body is missing or invalid. Please check it and try again.` | the offending field, when known |
 | `400` | Malformed query string (e.g. `?page=%`) | `The request contains invalid characters. Please check it and try again.` | — |
+| `401` | Protected route without a valid token | `Authentication is required to access this resource.` | — |
+| `401` | Login with wrong username or password | `Invalid username or password.` | — |
+| `403` | Authenticated but not allowed (reserved for future role checks) | `You do not have permission to access this resource.` | — |
 | `404` | Pokemon not found / not synced | `Pokemon with id 150 was not found` | — |
-| `404` | Unknown route | `The requested resource was not found.` | — |
+| `404` | Unknown route (with a valid token; without one it is `401`) | `The requested resource was not found.` | — |
 | `405` | Wrong HTTP method | `This operation is not supported for this resource.` | — |
 | `409` | Sync of an already synced Pokemon | `Pokemon with id 6 is already synced` | — |
-| `415` | Wrong/missing `Content-Type` on PUT | `The request format is not supported.` | — |
+| `409` | Register with a taken username | `The username 'ash' is already taken` | — |
+| `415` | Wrong/missing `Content-Type` on PUT/POST with a body | `The request format is not supported.` | — |
 | `503` | PokeAPI is down or too slow (endpoints 1–3) | `The service is temporarily unavailable. Please try again later.` | — |
 | `500` | Unexpected server fault | `An unexpected error occurred. Please try again later.` | — |
 
@@ -597,6 +696,8 @@ On startup, the local DB holds these Pokemon (endpoints 4–6 work immediately; 
 
 Ids such as `10`, `133` or `150` are good candidates to try the sync flow.
 
+**Demo credentials:** username `demo`, password `Pokemon123!` (log in with endpoint 8 to call the protected routes).
+
 ---
 
 ## TypeScript types
@@ -621,6 +722,16 @@ export interface ApiError {
 export interface FieldError {
   field: string;   // e.g. "region", "tags", "tags[1]", "page"
   message: string;
+}
+
+export interface AccessTokenResponse {
+  accessToken: string;
+  tokenType: 'Bearer';
+  expiresAt: string; // ISO-8601, UTC
+}
+
+export interface UserResponse {
+  username: string;
 }
 
 export interface Page<T> {

@@ -49,6 +49,10 @@ Create only the folder structure, interfaces and fake infrastructure implementat
 23. environment properties and dockerfile
     prompt: 'create environments properties for qa and dev'
     prompt: 'build the dockerfile for this project'
+24. add registration, authentication dependencies
+    prompt: 'Identify and add all dependencies required to implement the user registration, authentication, and the management of protected versus public routes.'
+25. implement registration, authentication
+    prompt: 'Implement an auxiliary API for user registration, authentication, and the management of protected versus public routes'
 
 FRONTEND
 1. create an agent
@@ -119,3 +123,5 @@ FRONTEND
         prompt: 'implement the user story 3, use the agent senior-frontend-dev'
 9. implement user story 4
         prompt: 'implement the user story 4, use the agent senior-frontend-dev'
+10. implement authentication
+    prompt: 'implement user registration and authentication based on documents @pdf and @md, use the agent senior-frontend-dev'
